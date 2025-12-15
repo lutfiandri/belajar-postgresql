@@ -104,11 +104,8 @@ Soal ini cukup straightforward - kita perlu mencari produk yang memenuhi dua kon
 Berikut langkah-langkahnya:
 
 1. `SELECT product_id`: Kita hanya perlu menampilkan kolom `product_id` saja, sesuai yang diminta di output.
-
 2. `FROM Products`: Kita mengambil data dari tabel `Products`.
-
 3. `WHERE low_fats = 'Y'`: Filter produk yang low fat (nilai `'Y'`).
-
 4. `AND recyclable = 'Y'`: Tambahkan kondisi kedua dengan operator `AND` - produk juga harus recyclable (nilai `'Y'`).
 
 Operator `AND` memastikan bahwa kedua kondisi harus terpenuhi secara bersamaan. Jadi hanya produk yang low fat dan recyclable yang akan muncul di hasil.

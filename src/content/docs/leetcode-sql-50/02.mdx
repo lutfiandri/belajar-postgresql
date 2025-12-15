@@ -113,9 +113,16 @@ Berikut langkah-langkahnya:
 3. `WHERE referee_id != 2`: Filter customer yang direfer oleh customer dengan `id` bukan 2. Operator `!=` berarti "tidak sama dengan".
 4. `OR referee_id IS NULL`: Tambahkan kondisi kedua dengan operator `OR` - customer yang tidak direfer sama sekali. `IS NULL` digunakan untuk mengecek apakah nilai kolom adalah `NULL`.
 
-Operator `OR` memastikan bahwa jika salah satu kondisi terpenuhi, baris tersebut akan muncul di hasil. Penting untuk menggunakan `IS NULL` (bukan `= NULL`) karena `NULL` adalah nilai khusus yang tidak bisa dibandingkan dengan operator `=`.
+Operator `OR` memastikan bahwa jika salah satu kondisi terpenuhi, baris tersebut akan muncul di hasil.
 
-Dari contoh data:
+> Penting: Kenapa perlu `IS NULL`? Di SQL, NULL akan selalu `FALSE` jika dibandingkan dengan operasi aritmatika seperti `=`, `!=`, `<`, `>`, dan lainnya.
+>
+> Contoh:\
+> `NULL != 0` -> `FALSE` \
+> `NULL = NULL` -> `FALSE` \
+> `NULL < 0` -> `FALSE`
+
+**Dari contoh data:**
 
 - Customer 1 (Will): `referee_id`=`NULL` ✅ (memenuhi kondisi kedua)
 - Customer 2 (Jane): `referee_id`=`NULL` ✅ (memenuhi kondisi kedua)
