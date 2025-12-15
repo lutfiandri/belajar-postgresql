@@ -13,7 +13,7 @@ export default defineConfig({
 			// social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/withastro/starlight' }],
 			sidebar: [
 				{
-					label: 'Leetcode SQL 50',
+					label: 'LeetCode SQL 50',
 					autogenerate: { directory: 'leetcode-sql-50' },
 				}
 			],
