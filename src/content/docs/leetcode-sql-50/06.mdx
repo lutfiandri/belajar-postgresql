@@ -1,0 +1,332 @@
+---
+title: Replace Employee ID With The Unique Identifier
+description: Replace Employee ID With The Unique Identifier
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Basic Joins" variant="note" />
+
+Tampilkan `unique_id` dan `name` dari setiap employee. Jika employee tidak punya `unique_id`, tampilkan `null` menggunakan `LEFT JOIN`.
+
+https://leetcode.com/problems/replace-employee-id-with-the-unique-identifier
+
+## Soal
+
+> Table: `Employees`
+>
+> ```
+> +---------------+---------+
+> | Column Name   | Type    |
+> +---------------+---------+
+> | id            | int     |
+> | name          | varchar |
+> +---------------+---------+
+> ```
+>
+> `id` is the primary key (column with unique values) for this table.
+>
+> Each row of this table contains the id and the name of an employee in a company.
+>
+> Table: `EmployeeUNI`
+>
+> ```
+> +---------------+---------+
+> | Column Name   | Type    |
+> +---------------+---------+
+> | id            | int     |
+> | unique_id     | int     |
+> +---------------+---------+
+> ```
+>
+> (`id`, `unique_id`) is the primary key (combination of columns with unique values) for this table.
+>
+> Each row of this table contains the id and the corresponding unique id of an employee in the company.
+
+Write a solution to show the **unique ID** of each user, If a user does not have a unique ID replace just show null.
+
+Return the result table in **any order**.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Employees` table:
+>
+> ```
+> +----+----------+
+> | id | name     |
+> +----+----------+
+> | 1  | Alice    |
+> | 7  | Bob      |
+> | 11 | Meir     |
+> | 90 | Winston  |
+> | 3  | Jonathan |
+> +----+----------+
+> ```
+>
+> `EmployeeUNI` table:
+>
+> ```
+> +----+-----------+
+> | id | unique_id |
+> +----+-----------+
+> | 3  | 1         |
+> | 11 | 2         |
+> | 90 | 3         |
+> +----+-----------+
+> ```
+>
+> Output:
+>
+> ```
+> +-----------+----------+
+> | unique_id | name     |
+> +-----------+----------+
+> | null      | Alice    |
+> | null      | Bob      |
+> | 2         | Meir     |
+> | 3         | Winston  |
+> | 1         | Jonathan |
+> +-----------+----------+
+> ```
+>
+> Explanation:
+>
+> - Alice and Bob do not have a unique ID, We will show null instead.
+> - The unique ID of Meir is 2.
+> - The unique ID of Winston is 3.
+> - The unique ID of Jonathan is 1.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Employees (
+    id INT PRIMARY KEY,
+    name VARCHAR(255)
+);
+
+CREATE TABLE EmployeeUNI (
+    id INT,
+    unique_id INT,
+    PRIMARY KEY (id, unique_id)
+);
+
+INSERT INTO Employees (id, name) VALUES
+    (1, 'Alice'),
+    (7, 'Bob'),
+    (11, 'Meir'),
+    (90, 'Winston'),
+    (3, 'Jonathan');
+
+INSERT INTO EmployeeUNI (id, unique_id) VALUES
+    (3, 1),
+    (11, 2),
+    (90, 3);
+```
+
+## Jawaban SQL
+
+```sql
+SELECT
+    eu.unique_id,
+    e.name
+FROM Employees e
+    LEFT JOIN EmployeeUNI eu ON eu.id = e.id;
+```
+
+## Penjelasan
+
+Soal ini meminta kita menggabungkan data dari dua tabel: `Employees` dan `EmployeeUNI`. Kita perlu menampilkan semua employee beserta `unique_id`-nya, tapi jika employee tidak punya `unique_id`, kita tampilkan `null`.
+
+Ini adalah kasus yang tepat untuk menggunakan **LEFT JOIN**. Mari kita pahami dulu konsepnya:
+
+**LEFT JOIN** akan mengambil semua baris dari tabel di kiri (`Employees`), lalu mencocokkannya dengan tabel di kanan (`EmployeeUNI`). Jika tidak ada yang cocok, kolom dari tabel kanan akan berisi `NULL`.
+
+Mari kita lihat query-nya:
+
+1. `SELECT eu.unique_id, e.name`: Kita ingin menampilkan `unique_id` dari tabel `EmployeeUNI` (disingkat `eu`) dan `name` dari tabel `Employees` (disingkat `e`).
+
+2. `FROM Employees e`: Tabel utama kita adalah `Employees`. Kita beri alias `e` agar lebih mudah ditulis.
+
+3. `LEFT JOIN EmployeeUNI eu ON eu.id = e.id`: Ini bagian pentingnya. Kita melakukan LEFT JOIN dengan tabel `EmployeeUNI` (alias `eu`). Kondisi join-nya adalah `eu.id = e.id` - artinya kita cocokkan berdasarkan kolom `id` yang sama di kedua tabel.
+
+Kenapa pakai LEFT JOIN, bukan INNER JOIN?
+
+- Kalau pakai INNER JOIN, hanya employee yang punya `unique_id` yang akan muncul di hasil (Alice dan Bob akan hilang).
+- Dengan LEFT JOIN, semua employee dari tabel `Employees` tetap muncul, meskipun tidak ada yang cocok di `EmployeeUNI`. Kolom `unique_id` akan berisi `NULL` untuk employee yang tidak punya data di `EmployeeUNI`.
+
+Dari contoh data:
+
+- Alice (`id = 1`): Tidak ada di `EmployeeUNI`, jadi `unique_id = NULL` ✅
+- Bob (`id = 7`): Tidak ada di `EmployeeUNI`, jadi `unique_id = NULL` ✅
+- Meir (`id = 11`): Ada di `EmployeeUNI` dengan `unique_id = 2` ✅
+- Winston (`id = 90`): Ada di `EmployeeUNI` dengan `unique_id = 3` ✅
+- Jonathan (`id = 3`): Ada di `EmployeeUNI` dengan `unique_id = 1` ✅
+
+Hasil akhirnya sesuai output contoh, dengan Alice dan Bob punya `unique_id = NULL`.
+
+## Penjelasan JOIN
+
+Ada 4 jenis JOIN yang bisa kita gunakan untuk menggabungkan data dari dua tabel. Mari kita lihat perbedaannya dengan contoh menggunakan tabel `Employees` dan `EmployeeUNI`.
+
+Tapi sebelumnya, kita perlu memahami konsep **tabel kiri** dan **tabel kanan** dalam JOIN.
+
+### Tabel Kiri vs Tabel Kanan
+
+Dalam JOIN, yang menentukan tabel kiri dan kanan adalah **posisi di query**, bukan urutan di `SELECT`:
+
+- **Tabel kiri**: Tabel yang ada di `FROM` (atau setelah `FROM`)
+- **Tabel kanan**: Tabel yang ada setelah `JOIN` (atau `LEFT JOIN`, `RIGHT JOIN`, dll)
+
+Contoh dari query kita:
+
+```sql
+SELECT eu.unique_id, e.name
+FROM Employees e              -- ← Ini TABEL KIRI
+LEFT JOIN EmployeeUNI eu      -- ← Ini TABEL KANAN
+    ON eu.id = e.id;
+```
+
+Meskipun di `SELECT` kita tulis `eu.unique_id` dulu, yang menentukan tabel kiri/kanan adalah:
+
+- `FROM Employees e` → **Tabel kiri** (`Employees`)
+- `LEFT JOIN EmployeeUNI eu` → **Tabel kanan** (`EmployeeUNI`)
+
+Jadi `LEFT JOIN` berarti "ambil semua dari tabel kiri (`Employees`) + yang cocok di tabel kanan (`EmployeeUNI`)".
+
+Kalau kita balik urutannya:
+
+```sql
+SELECT e.name, eu.unique_id
+FROM EmployeeUNI eu          -- ← Sekarang ini TABEL KIRI
+LEFT JOIN Employees e        -- ← Sekarang ini TABEL KANAN
+    ON e.id = eu.id;
+```
+
+Sekarang `EmployeeUNI` jadi tabel kiri, dan `Employees` jadi tabel kanan. Hasilnya akan berbeda!
+
+### 1. INNER JOIN
+
+INNER JOIN hanya mengambil baris yang ada di **kedua tabel** (yang cocok berdasarkan kondisi join).
+
+```sql
+SELECT eu.unique_id, e.name
+FROM Employees e
+INNER JOIN EmployeeUNI eu ON eu.id = e.id;
+```
+
+**Hasil:**
+
+```
++-----------+----------+
+| unique_id | name     |
++-----------+----------+
+| 2         | Meir     |
+| 3         | Winston  |
+| 1         | Jonathan |
++-----------+----------+
+```
+
+Hanya 3 baris yang muncul karena hanya Meir, Winston, dan Jonathan yang ada di kedua tabel. Alice dan Bob tidak muncul karena tidak ada di `EmployeeUNI`.
+
+### 2. LEFT JOIN (LEFT OUTER JOIN)
+
+LEFT JOIN mengambil **semua baris dari tabel kiri** (`Employees`), dan mencocokkannya dengan tabel kanan. Jika tidak ada yang cocok, kolom dari tabel kanan akan berisi `NULL`.
+
+```sql
+SELECT eu.unique_id, e.name
+FROM Employees e
+LEFT JOIN EmployeeUNI eu ON eu.id = e.id;
+```
+
+**Hasil:**
+
+```
++-----------+----------+
+| unique_id | name     |
++-----------+----------+
+| null      | Alice    |
+| null      | Bob      |
+| 2         | Meir     |
+| 3         | Winston  |
+| 1         | Jonathan |
++-----------+----------+
+```
+
+Semua employee muncul, termasuk Alice dan Bob yang tidak punya `unique_id` (ditampilkan sebagai `NULL`). Ini adalah solusi untuk soal ini.
+
+### 3. RIGHT JOIN (RIGHT OUTER JOIN)
+
+RIGHT JOIN mengambil **semua baris dari tabel kanan** (`EmployeeUNI`), dan mencocokkannya dengan tabel kiri. Jika tidak ada yang cocok, kolom dari tabel kiri akan berisi `NULL`.
+
+```sql
+SELECT eu.unique_id, e.name
+FROM Employees e
+RIGHT JOIN EmployeeUNI eu ON eu.id = e.id;
+```
+
+**Hasil:**
+
+```
++-----------+----------+
+| unique_id | name     |
++-----------+----------+
+| 2         | Meir     |
+| 3         | Winston  |
+| 1         | Jonathan |
++-----------+----------+
+```
+
+Hasilnya sama dengan INNER JOIN karena semua `id` di `EmployeeUNI` ada di `Employees`. Tapi kalau ada `id` di `EmployeeUNI` yang tidak ada di `Employees`, baris tersebut akan muncul dengan `name = NULL`.
+
+### 4. FULL OUTER JOIN
+
+FULL OUTER JOIN mengambil **semua baris dari kedua tabel**. Jika tidak ada yang cocok di salah satu tabel, kolom dari tabel tersebut akan berisi `NULL`.
+
+```sql
+SELECT eu.unique_id, e.name
+FROM Employees e
+FULL OUTER JOIN EmployeeUNI eu ON eu.id = e.id;
+```
+
+**Hasil:**
+
+```
++-----------+----------+
+| unique_id | name     |
++-----------+----------+
+| null      | Alice    |
+| null      | Bob      |
+| 2         | Meir     |
+| 3         | Winston  |
+| 1         | Jonathan |
++-----------+----------+
+```
+
+Hasilnya sama dengan LEFT JOIN dalam kasus ini, karena semua `id` di `EmployeeUNI` ada di `Employees`. Tapi kalau ada `id` di `EmployeeUNI` yang tidak ada di `Employees`, baris tersebut juga akan muncul dengan `name = NULL`.
+
+### Ringkasan Perbedaan
+
+| JOIN Type           | Baris yang Diambil                          |
+| ------------------- | ------------------------------------------- |
+| **INNER JOIN**      | Hanya yang cocok di kedua tabel             |
+| **LEFT JOIN**       | Semua dari tabel kiri + yang cocok di kanan |
+| **RIGHT JOIN**      | Semua dari tabel kanan + yang cocok di kiri |
+| **FULL OUTER JOIN** | Semua dari kedua tabel                      |
+
+Untuk soal ini, kita pakai **LEFT JOIN** karena kita ingin menampilkan semua employee (dari tabel kiri), meskipun tidak semua punya `unique_id`.
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data utama.
+- `LEFT JOIN`: Menggabungkan dua tabel dengan mempertahankan semua baris dari tabel kiri, bahkan jika tidak ada yang cocok di tabel kanan.
+- `ON`: Menentukan kondisi untuk menggabungkan baris dari kedua tabel.
+- `AS` / Alias: Memberi nama singkat untuk tabel (contoh: `e` untuk `Employees`, `eu` untuk `EmployeeUNI`).
+- `NULL`: Nilai yang menunjukkan tidak ada data.
