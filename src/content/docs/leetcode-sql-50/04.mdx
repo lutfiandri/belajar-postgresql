@@ -1,0 +1,166 @@
+---
+title: Article Views I
+description: Article Views I
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Select" variant="note" />
+
+Cari semua `author_id` yang pernah melihat (view) setidaknya satu artikel miliknya sendiri, lalu tampilkan sebagai `id` dan urutkan dari yang terkecil ke terbesar.
+
+https://leetcode.com/problems/article-views-i
+
+## Soal
+
+> Table: `Views`
+>
+> ```
+> +---------------+---------+
+> | Column Name   | Type    |
+> +---------------+---------+
+> | article_id    | int     |
+> | author_id     | int     |
+> | viewer_id     | int     |
+> | view_date     | date    |
+> +---------------+---------+
+> ```
+>
+> There is no primary key (column with unique values) for this table, the table may have duplicate rows.
+>
+> Each row of this table indicates that some viewer viewed an article (written by some author) on some date.
+>
+> Note that equal `author_id` and `viewer_id` indicate the same person.
+
+Write a solution to find all the authors that viewed at least one of their own articles.
+
+Return the result table sorted by `id` in ascending order.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Views` table:
+>
+> ```
+> +------------+-----------+-----------+------------+
+> | article_id | author_id | viewer_id | view_date  |
+> +------------+-----------+-----------+------------+
+> | 1          | 3         | 5         | 2019-08-01 |
+> | 1          | 3         | 6         | 2019-08-02 |
+> | 2          | 7         | 7         | 2019-08-01 |
+> | 2          | 7         | 6         | 2019-08-02 |
+> | 4          | 7         | 1         | 2019-07-22 |
+> | 3          | 4         | 4         | 2019-07-21 |
+> | 3          | 4         | 4         | 2019-07-21 |
+> +------------+-----------+-----------+------------+
+> ```
+>
+> Output:
+>
+> ```
+> +------+
+> | id   |
+> +------+
+> | 4    |
+> | 7    |
+> +------+
+> ```
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Views (
+    article_id INT,
+    author_id INT,
+    viewer_id INT,
+    view_date DATE
+);
+
+INSERT INTO Views (article_id, author_id, viewer_id, view_date) VALUES
+    (1, 3, 5, '2019-08-01'),
+    (1, 3, 6, '2019-08-02'),
+    (2, 7, 7, '2019-08-01'),
+    (2, 7, 6, '2019-08-02'),
+    (4, 7, 1, '2019-07-22'),
+    (3, 4, 4, '2019-07-21'),
+    (3, 4, 4, '2019-07-21');
+```
+
+## Jawaban SQL
+
+```sql
+SELECT DISTINCT author_id AS id
+FROM Views
+WHERE author_id = viewer_id
+ORDER BY id ASC;
+```
+
+## Penjelasan
+
+Soal ini meminta kita mencari **penulis yang pernah melihat artikelnya sendiri**. Kuncinya sederhana: kita cari baris di mana `author_id` sama dengan `viewer_id` - artinya penulis dan viewer adalah orang yang sama.
+
+Mari kita mulai dengan query dasar:
+
+```sql
+SELECT author_id AS id
+FROM Views
+WHERE author_id = viewer_id
+ORDER BY id ASC;
+```
+
+Langkah-langkahnya:
+
+1. `SELECT author_id AS id`: Ambil kolom `author_id` dan ubah namanya jadi `id` sesuai format output.
+2. `FROM Views`: Data diambil dari tabel `Views`.
+3. `WHERE author_id = viewer_id`: Filter hanya baris di mana penulis melihat artikelnya sendiri.
+4. `ORDER BY id ASC`: Urutkan dari kecil ke besar.
+
+Tapi tunggu, coba jalankan query di atas dengan data contoh. Hasilnya akan seperti ini:
+
+```
++----+
+| id |
++----+
+| 4  |
+| 4  |
+| 7  |
++----+
+```
+
+Hmm, ada masalah! `id = 4` muncul dua kali, padahal kita hanya butuh daftar penulis yang unik. Kenapa ini terjadi?
+
+Lihat data contoh: ada dua baris yang sama persis untuk `author_id = 4` dan `viewer_id = 4` (baris ke-6 dan ke-7). Karena tabel tidak punya primary key, duplikat seperti ini bisa terjadi. Setiap baris yang memenuhi kondisi `WHERE` akan muncul di hasil, jadi `4` muncul dua kali.
+
+Solusinya? Pakai `DISTINCT` untuk menghilangkan duplikat:
+
+```sql "DISTINCT"
+SELECT DISTINCT author_id AS id
+FROM Views
+WHERE author_id = viewer_id
+ORDER BY id ASC;
+```
+
+`DISTINCT` membuat setiap nilai `id` yang sama hanya muncul sekali. Jadi meskipun ada dua baris dengan `author_id = 4`, di hasil akhir hanya muncul satu kali.
+
+Dari contoh data:
+
+- `author_id = 3`: viewer-nya adalah 5 dan 6, tidak pernah sama dengan `author_id` ❌ tidak masuk.
+- `author_id = 7`: ada baris dengan `viewer_id = 7` ✅ masuk.
+- `author_id = 4`: ada baris dengan `viewer_id = 4` (bahkan ada duplikat) ✅ masuk, tapi karena `DISTINCT`, di hasil hanya muncul sekali.
+
+Hasil akhirnya adalah `id = 4` dan `id = 7`, sesuai output contoh.
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `DISTINCT`: Menghapus baris duplikat dari hasil query.
+- `AS`: Memberi alias nama kolom di hasil query.
+- `FROM`: Menentukan tabel sumber data.
+- `WHERE`: Memfilter baris berdasarkan kondisi.
+- `ORDER BY ... ASC`: Mengurutkan hasil secara ascending (dari kecil ke besar).
