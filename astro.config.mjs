@@ -15,7 +15,11 @@ export default defineConfig({
 				{
 					label: 'LeetCode SQL 50',
 					autogenerate: { directory: 'leetcode-sql-50' },
-				}
+				},
+				{
+					label: 'Basic SQL',
+					autogenerate: { directory: 'basic' },
+				},
 			],
 		}),
 	],

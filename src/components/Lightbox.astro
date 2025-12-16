@@ -1,0 +1,73 @@
+---
+interface Props {
+  src: string;
+  width?: string;
+  height?: string;
+}
+
+const { src, width, height } = Astro.props;
+---
+
+<img
+  src={src}
+  data-glightbox="gallery"
+  data-gallery="gallery"
+  width={width}
+  height={height}
+  style="cursor: pointer;"
+/>
+
+<script>
+  import GLightbox from "glightbox";
+  import "glightbox/dist/css/glightbox.css";
+
+  // Initialize GLightbox globally (only once)
+  let lightboxInstance: any = null;
+
+  function initLightbox() {
+    // Only initialize once
+    if (lightboxInstance) return;
+
+    // Find all images with data-glightbox attribute
+    const images = document.querySelectorAll('[data-glightbox="gallery"]');
+
+    if (images.length === 0) return;
+
+    // Convert images to GLightbox format
+    const lightboxItems = Array.from(images).map((img) => ({
+      href: (img as HTMLImageElement).src || img.getAttribute("src") || "",
+      type: "image",
+    }));
+
+    // Initialize GLightbox
+    lightboxInstance = GLightbox({
+      elements: lightboxItems as any,
+      autoplayVideos: false,
+      openEffect: "fade",
+      closeEffect: "fade",
+      closeButton: true,
+      touchNavigation: true,
+      keyboardNavigation: true,
+      closeOnOutsideClick: true,
+    });
+
+    // Add click handlers
+    images.forEach((img, index) => {
+      img.addEventListener("click", () => {
+        lightboxInstance.openAt(index);
+      });
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initLightbox);
+  } else {
+    initLightbox();
+  }
+
+  // Re-initialize on navigation
+  document.addEventListener("astro:page-load", () => {
+    lightboxInstance = null;
+    initLightbox();
+  });
+</script>

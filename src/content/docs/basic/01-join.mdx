@@ -1,0 +1,192 @@
+---
+title: Memahami 4 Jenis JOIN
+description: Penjelasan lengkap tentang 4 jenis JOIN dengan contoh praktis
+---
+
+import Lightbox from "../../../components/Lightbox.astro";
+
+JOIN adalah cara untuk menggabungkan data dari dua atau lebih tabel berdasarkan kondisi tertentu. Di materi ini, kita akan belajar 4 jenis JOIN dengan contoh yang mudah dipahami.
+
+## TL;DR
+
+<Lightbox src="/join-all.png" />
+
+## Setup Data
+
+Mari kita mulai dengan membuat dua tabel sederhana: `authors` dan `books`.
+
+```sql
+CREATE TABLE authors (
+    author_id INT PRIMARY KEY,
+    name VARCHAR(255)
+);
+
+CREATE TABLE books (
+    book_id INT PRIMARY KEY,
+    title VARCHAR(255),
+    author_id INT
+);
+
+INSERT INTO authors (author_id, name) VALUES
+    (1, 'Andi'),
+    (2, 'Budi'),
+    (3, 'Cahya'),
+    (4, 'Danang');
+
+INSERT INTO books (book_id, title, author_id) VALUES
+    (1, 'Belajar SQL', 1),
+    (2, 'Belajar Python', 2),
+    (3, 'Belajar Golang', 1),
+    (4, 'Belajar Hacking', NULL);
+```
+
+Data yang kita punya:
+
+<Lightbox src="/join-data.png" />
+
+Perhatikan:
+
+- Buku 1 dan 3 punya author yang sama (Andi - author_id 1)
+- Buku 4 tidak punya author (`author_id = NULL`)
+- Author 3 (Cahya) dan 4 (Danang) tidak punya buku di tabel books
+
+## Tabel Kiri vs Tabel Kanan
+
+Sebelum membahas jenis-jenis JOIN, penting untuk memahami konsep **tabel kiri** dan **tabel kanan**:
+
+- **Tabel kiri**: Tabel yang ada di `FROM`
+- **Tabel kanan**: Tabel yang ada setelah `JOIN`
+
+Yang menentukan bukan urutan di `SELECT`, tapi posisi di query. Contoh:
+
+```sql "LEFT"
+SELECT *
+FROM authors a        -- ← Ini TABEL KIRI
+LEFT JOIN books b     -- ← Ini TABEL KANAN
+    ON a.author_id = b.author_id
+ORDER BY a.author_id ASC;
+```
+
+Oh ya, nanti kita hanya akan mengganti `LEFT` dengan `FULL`, `RIGHT`, dan `INNER` untuk melihat perbedaannya.
+
+## 1. FULL JOIN
+
+FULL JOIN mengambil **semua baris dari kedua tabel**. Kalau tidak ada yang cocok di salah satu tabel, kolom dari tabel tersebut akan berisi `NULL`.
+
+```sql "FULL JOIN"
+SELECT *
+FROM authors
+FULL JOIN books ON authors.author_id = books.author_id
+ORDER BY authors.author_id ASC;
+```
+
+<Lightbox src="/join-full.png" />
+
+Perhatikan:
+
+- Semua author muncul (termasuk yang tidak punya buku)
+- Semua buku muncul (termasuk yang tidak punya author)
+- Total 6 baris: semua author + semua buku, termasuk yang tidak punya pasangan
+
+Kapan pakai FULL JOIN?
+
+- Ketika kita ingin melihat semua data dari kedua tabel, termasuk yang tidak punya pasangan
+- Contoh: Analisis lengkap - tampilkan semua author dan semua buku, lihat mana yang belum terhubung
+
+## 2. LEFT JOIN
+
+LEFT JOIN mengambil **semua baris dari tabel kiri** (`authors`), lalu mencocokkannya dengan tabel kanan (`books`). Kalau tidak ada yang cocok, kolom dari tabel kanan akan berisi `NULL`.
+
+```sql
+SELECT *
+FROM authors
+LEFT JOIN books ON authors.author_id = books.author_id
+ORDER BY authors.author_id ASC;
+```
+
+<Lightbox src="/join-left.png" />
+
+Perhatikan:
+
+- Semua 4 author muncul di hasil
+- Author 1 (Andi) muncul 2 kali karena punya 2 buku
+- Author 3 (Cahya) dan 4 (Danang) muncul dengan kolom buku berisi `NULL` karena tidak punya buku
+- Buku yang tidak punya author (Belajar Hacking) tidak muncul
+
+Kapan pakai LEFT JOIN?
+
+- Ketika kita ingin menampilkan semua data dari tabel utama, meskipun tidak ada yang cocok di tabel lain
+- Contoh: Tampilkan semua author, termasuk yang belum punya buku
+
+## 3. RIGHT JOIN
+
+RIGHT JOIN mengambil **semua baris dari tabel kanan** (`books`), lalu mencocokkannya dengan tabel kiri (`authors`). Kalau tidak ada yang cocok, kolom dari tabel kiri akan berisi `NULL`.
+
+```sql
+SELECT *
+FROM authors
+RIGHT JOIN books ON authors.author_id = books.author_id
+ORDER BY authors.author_id ASC;
+```
+
+<Lightbox src="/join-right.png" />
+
+Perhatikan:
+
+- Semua 4 buku muncul di hasil
+- Buku 1 dan 3 muncul dengan author yang sama (Andi)
+- Buku 4 (`Belajar Hacking`) muncul dengan kolom author berisi `NULL` karena tidak punya author
+- Author yang tidak punya buku (Cahya, Danang) tidak muncul
+
+Kapan pakai RIGHT JOIN?
+
+- Ketika kita ingin menampilkan semua data dari tabel referensi, meskipun tidak ada yang cocok di tabel utama
+- Contoh: Tampilkan semua buku, termasuk yang belum punya author
+
+## 4. INNER JOIN
+
+INNER JOIN hanya mengambil baris yang **cocok di kedua tabel**. Kalau tidak ada yang cocok, baris tersebut tidak akan muncul di hasil.
+
+```sql
+SELECT *
+FROM authors
+INNER JOIN books ON authors.author_id = books.author_id
+ORDER BY authors.author_id ASC;
+```
+
+<Lightbox src="/join-inner.png" />
+
+Kenapa hanya 3 baris?
+
+- Author 1 (Andi) muncul 2 kali karena punya 2 buku (Belajar SQL dan Belajar Golang)
+- Author 2 (Budi) muncul 1 kali karena punya 1 buku (Belajar Python)
+- Author 3 (Cahya) dan 4 (Danang) tidak muncul karena tidak punya buku
+- Buku 4 (Belajar Hacking) tidak muncul karena tidak punya author (`author_id = NULL`)
+
+Kapan pakai INNER JOIN?
+
+- Ketika kita hanya butuh data yang lengkap di kedua tabel
+- Contoh: Tampilkan semua author beserta bukunya (hanya author yang punya buku)
+
+## Ringkasan
+
+| Tipe    | Baris yang Diambil                          | Contoh Hasil (dari data kita)       |
+| ------- | ------------------------------------------- | ----------------------------------- |
+| `FULL`  | Semua dari kedua tabel                      | 6 baris (semua author + semua buku) |
+| `LEFT`  | Semua dari tabel kiri + yang cocok di kanan | 5 baris (semua author)              |
+| `RIGHT` | Semua dari tabel kanan + yang cocok di kiri | 4 baris (semua buku)                |
+| `INNER` | Hanya yang cocok di kedua tabel             | 3 baris (author yang punya buku)    |
+
+## Tips
+
+Santai, dari pengalaman penulis sebagai software engineer, hampir 90% kasus di dunia kerja itu hanya menggunakan **LEFT JOIN**. Kenapa?
+
+1. **Lebih natural**: Biasanya kita punya tabel utama (misalnya `users`, `products`, `orders`) yang ingin ditampilkan semua datanya, lalu kita tambahkan informasi dari tabel lain sebagai pelengkap.
+2. **Lebih aman**: LEFT JOIN memastikan semua data dari tabel utama tetap muncul, meskipun tidak ada yang cocok di tabel lain. Ini mencegah data penting hilang karena tidak ada relasi.
+3. **RIGHT JOIN jarang dipakai**: Biasanya bisa diganti dengan LEFT JOIN dengan membalik urutan tabel. Contoh: `FROM books RIGHT JOIN authors` bisa ditulis sebagai `FROM authors LEFT JOIN books`.
+4. **INNER JOIN vs LEFT JOIN**:
+   - Pakai INNER JOIN kalau kita yakin semua data pasti cocok dan tidak ada yang hilang
+   - Pakai LEFT JOIN kalau ada kemungkinan data tidak lengkap atau kita ingin melihat data yang belum terhubung
+5. **FULL JOIN**: Berguna untuk analisis data atau audit - menemukan data yang tidak terhubung di kedua sisi. Tapi jarang dipakai di query sehari-hari.
+
+Jadi kalau bingung mau pakai JOIN yang mana, coba pakai LEFT JOIN dulu. Biasanya itu yang paling sesuai!
