@@ -1,0 +1,123 @@
+---
+title: Invalid Tweets
+description: Invalid Tweets
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Select" variant="note" />
+
+Cari `tweet_id` dari tweet yang **invalid**, yaitu tweet yang jumlah karakter di `content`-nya lebih dari 15 karakter menggunakan fungsi `LENGTH()`.
+
+https://leetcode.com/problems/invalid-tweets
+
+## Soal
+
+> Table: `Tweets`
+>
+> ```
+> +----------------+---------+
+> | Column Name    | Type    |
+> +----------------+---------+
+> | tweet_id       | int     |
+> | content        | varchar |
+> +----------------+---------+
+> ```
+>
+> `tweet_id` is the primary key (column with unique values) for this table.
+>
+> `content` consists of alphanumeric characters, '!', or ' ' and no other special characters.
+>
+> This table contains all the tweets in a social media app.
+
+Write a solution to find the IDs of the invalid tweets. The tweet is invalid if the number of characters used in the content of the tweet is **strictly greater** than `15`.
+
+Return the result table in **any order**.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Tweets` table:
+>
+> ```
+> +----------+-----------------------------------+
+> | tweet_id | content                           |
+> +----------+-----------------------------------+
+> | 1        | Let us Code                       |
+> | 2        | More than fifteen chars are here! |
+> +----------+-----------------------------------+
+> ```
+>
+> Output:
+>
+> ```
+> +----------+
+> | tweet_id |
+> +----------+
+> | 2        |
+> +----------+
+> ```
+>
+> Explanation:
+>
+> - Tweet 1 has length = 11. It is a valid tweet.
+> - Tweet 2 has length = 33. It is an invalid tweet.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Tweets (
+    tweet_id INT PRIMARY KEY,
+    content VARCHAR(255)
+);
+
+INSERT INTO Tweets (tweet_id, content) VALUES
+    (1, 'Let us Code'),
+    (2, 'More than fifteen chars are here!');
+```
+
+## Jawaban SQL
+
+```sql
+SELECT tweet_id
+FROM Tweets
+WHERE LENGTH(content) > 15;
+```
+
+## Penjelasan
+
+Soal ini meminta kita mencari tweet yang **invalid**, yaitu tweet yang jumlah karakternya lebih dari 15. Kita perlu menghitung panjang string di kolom `content` dan membandingkannya dengan angka 15.
+
+Mari kita pecah langkah-langkahnya:
+
+1. `SELECT tweet_id`: Kita hanya perlu menampilkan `tweet_id` saja, sesuai format output.
+2. `FROM Tweets`: Data diambil dari tabel `Tweets`.
+3. `WHERE LENGTH(content) > 15`: Ini bagian pentingnya. `LENGTH(content)` menghitung jumlah karakter di kolom `content`, lalu kita bandingkan apakah hasilnya lebih besar dari 15.
+
+Fungsi `LENGTH()` menghitung setiap karakter termasuk spasi. Jadi:
+
+- "Let us Code" punya 11 karakter (termasuk 2 spasi) ✅ valid (tidak lebih dari 15)
+- "More than fifteen chars are here!" punya 33 karakter ❌ invalid (lebih dari 15)
+
+Operator `>` artinya "lebih besar dari" (strictly greater). Jadi hanya tweet dengan panjang **lebih dari** 15 yang akan masuk hasil.
+
+Dari contoh data:
+
+- Tweet 1: `LENGTH('Let us Code') = 11`, karena 11 tidak lebih dari 15, maka tidak masuk hasil.
+- Tweet 2: `LENGTH('More than fifteen chars are here!') = 33`, karena 33 lebih dari 15, maka masuk hasil.
+
+Hasil akhirnya hanya `tweet_id = 2`.
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `WHERE`: Memfilter baris berdasarkan kondisi.
+- `LENGTH()`: Fungsi yang menghitung jumlah karakter dalam sebuah string.
+- `>`: Operator perbandingan "lebih besar dari".
