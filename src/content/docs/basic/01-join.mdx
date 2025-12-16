@@ -15,7 +15,7 @@ JOIN adalah cara untuk menggabungkan data dari dua atau lebih tabel berdasarkan 
 
 ## TL;DR
 
-<Lightbox src={joinAll.src} alt="Overview 4 jenis JOIN" />
+<Lightbox src={joinAll} alt="Overview 4 jenis JOIN" />
 
 ## Setup Data
 
@@ -48,7 +48,7 @@ INSERT INTO books (book_id, title, author_id) VALUES
 
 Data yang kita punya:
 
-<Lightbox src={joinData.src} alt="Data authors dan books" />
+<Lightbox src={joinData} alt="Data authors dan books" />
 
 Perhatikan:
 
@@ -86,7 +86,7 @@ FULL JOIN books ON authors.author_id = books.author_id
 ORDER BY authors.author_id ASC;
 ```
 
-<Lightbox src={joinFull.src} alt="FULL JOIN" />
+<Lightbox src={joinFull} alt="FULL JOIN" />
 
 Perhatikan:
 
@@ -110,7 +110,7 @@ LEFT JOIN books ON authors.author_id = books.author_id
 ORDER BY authors.author_id ASC;
 ```
 
-<Lightbox src={joinLeft.src} alt="LEFT JOIN" />
+<Lightbox src={joinLeft} alt="LEFT JOIN" />
 
 Perhatikan:
 
@@ -135,7 +135,7 @@ RIGHT JOIN books ON authors.author_id = books.author_id
 ORDER BY authors.author_id ASC;
 ```
 
-<Lightbox src={joinRight.src} alt="RIGHT JOIN" />
+<Lightbox src={joinRight} alt="RIGHT JOIN" />
 
 Perhatikan:
 
@@ -160,7 +160,7 @@ INNER JOIN books ON authors.author_id = books.author_id
 ORDER BY authors.author_id ASC;
 ```
 
-<Lightbox src={joinInner.src} alt="INNER JOIN" />
+<Lightbox src={joinInner} alt="INNER JOIN" />
 
 Kenapa hanya 3 baris?
 
