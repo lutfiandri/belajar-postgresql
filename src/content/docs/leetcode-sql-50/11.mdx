@@ -1,0 +1,198 @@
+---
+title: Employee Bonus
+description: Employee Bonus
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Basic Joins" variant="note" />
+
+Cari nama dan jumlah bonus karyawan yang bonusnya kurang dari 1000 atau tidak mendapat bonus menggunakan `LEFT JOIN` dan filter `WHERE` dengan kondisi `OR`.
+
+https://leetcode.com/problems/employee-bonus
+
+## Soal
+
+> Table: `Employee`
+>
+> ```
+> +-------------+---------+
+> | Column Name | Type    |
+> +-------------+---------+
+> | empId       | int     |
+> | name        | varchar |
+> | supervisor  | int     |
+> | salary      | int     |
+> +-------------+---------+
+> ```
+>
+> `empId` is the column with unique values for this table.
+>
+> Each row of this table indicates the name and the ID of an employee in addition to their salary and the id of their manager.
+>
+> Table: `Bonus`
+>
+> ```
+> +-------------+------+
+> | Column Name | Type |
+> +-------------+------+
+> | empId       | int  |
+> | bonus       | int  |
+> +-------------+------+
+> ```
+>
+> `empId` is the column of unique values for this table.
+>
+> `empId` is a foreign key (reference column) to `empId` from the Employee table.
+>
+> Each row of this table contains the id of an employee and their respective bonus.
+
+Write a solution to report the name and bonus amount of each employee who satisfies either of the following:
+
+- The employee has a bonus **less than** `1000`.
+- The employee did not get any bonus.
+
+Return the result table in **any order**.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Employee` table:
+>
+> ```
+> +-------+--------+------------+--------+
+> | empId | name   | supervisor | salary |
+> +-------+--------+------------+--------+
+> | 3     | Brad   | null       | 4000   |
+> | 1     | John   | 3          | 1000   |
+> | 2     | Dan    | 3          | 2000   |
+> | 4     | Thomas | 3          | 4000   |
+> +-------+--------+------------+--------+
+> ```
+>
+> `Bonus` table:
+>
+> ```
+> +-------+-------+
+> | empId | bonus |
+> +-------+-------+
+> | 2     | 500   |
+> | 4     | 2000  |
+> +-------+-------+
+> ```
+>
+> Output:
+>
+> ```
+> +------+-------+
+> | name | bonus |
+> +------+-------+
+> | Brad | null  |
+> | John | null  |
+> | Dan  | 500   |
+> +------+-------+
+> ```
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Employee (
+    empId INT PRIMARY KEY,
+    name VARCHAR(255),
+    supervisor INT,
+    salary INT
+);
+
+CREATE TABLE Bonus (
+    empId INT PRIMARY KEY,
+    bonus INT,
+    FOREIGN KEY (empId) REFERENCES Employee(empId)
+);
+
+INSERT INTO Employee (empId, name, supervisor, salary) VALUES
+    (3, 'Brad', NULL, 4000),
+    (1, 'John', 3, 1000),
+    (2, 'Dan', 3, 2000),
+    (4, 'Thomas', 3, 4000);
+
+INSERT INTO Bonus (empId, bonus) VALUES
+    (2, 500),
+    (4, 2000);
+```
+
+## Jawaban SQL
+
+```sql "OR b.bonus IS NULL"
+SELECT name, bonus
+FROM Employee e
+    LEFT JOIN Bonus b ON b.empId = e.empId
+WHERE b.bonus < 1000
+    OR b.bonus IS NULL;
+```
+
+## Penjelasan
+
+Soal ini meminta kita mencari karyawan yang bonusnya kurang dari 1000 atau tidak mendapat bonus sama sekali.
+
+Mari kita breakdown query-nya step by step:
+
+1. `FROM Employee e LEFT JOIN Bonus b ON b.empId = e.empId`: Kita melakukan LEFT JOIN antara tabel `Employee` (sebagai tabel utama) dengan tabel `Bonus`.
+
+   - `e` mewakili tabel `Employee`
+   - `b` mewakili tabel `Bonus`
+   - Kondisi join: `b.empId = e.empId` - mencocokkan berdasarkan `empId`
+   - Dengan LEFT JOIN, semua karyawan dari tabel `Employee` akan muncul, meskipun tidak ada bonus yang cocok. Jika tidak ada bonus, kolom `bonus` akan berisi `NULL`.
+
+   Setelah LEFT JOIN, tabel hasilnya akan terlihat seperti ini:
+
+   ```
+   +-------+--------+------------+--------+-------+-------+
+   | empId | name   | supervisor | salary | empId | bonus |
+   +-------+--------+------------+--------+-------+-------+
+   | 3     | Brad   | NULL       | 4000   | NULL  | NULL  |
+   | 1     | John   | 3          | 1000   | NULL  | NULL  |
+   | 2     | Dan    | 3          | 2000   | 2     | 500   |
+   | 4     | Thomas | 3          | 4000   | 4     | 2000  |
+   +-------+--------+------------+--------+-------+-------+
+   ```
+
+2. `WHERE b.bonus < 1000 OR b.bonus IS NULL`: Kita filter hanya baris yang memenuhi salah satu kondisi:
+
+   - `b.bonus < 1000`: Bonus kurang dari 1000
+   - `b.bonus IS NULL`: Tidak ada bonus (tidak mendapat bonus)
+
+   > Jangan lupa bahwa `NULL` akan selalu `FALSE` jika dibandingkan dengan operasi aritmatika seperti `=`, `!=`, `<`, `>`, dan lainnya.
+   > Maka dari itu, kita perlu menambahkan `OR b.bonus IS NULL`.
+
+   Dari tabel hasil setelah JOIN:
+
+   - Brad: `bonus = NULL` → memenuhi `b.bonus IS NULL` ✅
+   - John: `bonus = NULL` → memenuhi `b.bonus IS NULL` ✅
+   - Dan: `bonus = 500` → memenuhi `b.bonus < 1000` ✅
+   - Thomas: `bonus = 2000` → tidak memenuhi kondisi (2000 >= 1000 dan bukan NULL) ❌
+
+3. `SELECT name, bonus`: Tampilkan `name` dan `bonus` dari karyawan yang memenuhi kondisi.
+
+Hasil akhir: Brad (NULL), John (NULL), dan Dan (500), sesuai dengan output contoh.
+
+> Kalau kamu masih bingung dengan `JOIN` dan kenapa menggunakan `LEFT JOIN`, coba baca dulu materi ini yaa!
+> [Memahami 4 Jenis JOIN](../../basic/01-join)
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data utama.
+- `LEFT JOIN`: Menggabungkan dua tabel dengan mempertahankan semua baris dari tabel kiri, bahkan jika tidak ada yang cocok di tabel kanan.
+- `ON`: Menentukan kondisi untuk menggabungkan baris dari kedua tabel.
+- `WHERE`: Memfilter baris berdasarkan kondisi tertentu.
+- `OR`: Operator logika untuk menggabungkan beberapa kondisi (salah satu kondisi benar).
+- `IS NULL`: Mengecek apakah nilai kolom adalah `NULL`.
+- Operasi perbandingan: `<` untuk membandingkan nilai numerik.
+- Foreign Key: Kolom yang merujuk ke primary key di tabel lain, memastikan integritas data.
+- [Memahami 4 Jenis JOIN](../../basic/01-join)
