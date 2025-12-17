@@ -1,0 +1,250 @@
+---
+title: Tipe Data Angka
+description: Penjelasan lengkap tentang berbagai tipe data numerik yang tersedia di PostgreSQL
+---
+
+PostgreSQL menyediakan berbagai tipe data untuk menyimpan angka. Memilih tipe data yang tepat penting untuk efisiensi penyimpanan dan akurasi perhitungan.
+
+## TL;DR
+
+PostgreSQL punya beberapa tipe data angka:
+
+- **Integer**: `SMALLINT`, `INTEGER` (atau `INT`), `BIGINT` - untuk bilangan bulat
+- **Decimal**: `NUMERIC` (atau `DECIMAL`) - untuk angka dengan presisi tinggi
+- **Floating Point**: `REAL`, `DOUBLE PRECISION` - untuk angka desimal dengan presisi lebih rendah
+- **Serial**: `SERIAL`, `SMALLSERIAL`, `BIGSERIAL` - untuk auto-increment
+
+## Tipe Data Integer (Bilangan Bulat)
+
+Integer digunakan untuk menyimpan angka tanpa desimal. Ada 3 jenis:
+
+### SMALLINT
+
+- Ukuran: 2 bytes
+- Rentang: -32,768 sampai 32,767
+- Cocok untuk: Data yang nilainya kecil dan terbatas (contoh: umur, jumlah item terbatas)
+
+```sql
+CREATE TABLE products (
+    id INT PRIMARY KEY,
+    stock SMALLINT  -- Maksimal 32,767 unit
+);
+
+INSERT INTO products (id, stock) VALUES (1, 100);
+```
+
+### INTEGER atau INT
+
+- Ukuran: 4 bytes
+- Rentang: -2,147,483,648 sampai 2,147,483,647
+- Cocok untuk: Sebagian besar kasus penggunaan (ID, jumlah, dll)
+- Ini adalah tipe data integer yang paling sering digunakan
+
+```sql
+CREATE TABLE users (
+    id INT PRIMARY KEY,
+    age INT,
+    total_purchases INT
+);
+
+INSERT INTO users (id, age, total_purchases) VALUES (1, 25, 1500);
+```
+
+### BIGINT
+
+- Ukuran: 8 bytes
+- Rentang: -9,223,372,036,854,775,808 sampai 9,223,372,036,854,775,807
+- Cocok untuk: Data yang nilainya sangat besar (contoh: jumlah follower di media sosial, transaksi besar)
+
+```sql
+CREATE TABLE transactions (
+    id BIGINT PRIMARY KEY,
+    amount BIGINT  -- Untuk nilai yang sangat besar
+);
+
+INSERT INTO transactions (id, amount) VALUES (1, 5000000000);
+```
+
+## Tipe Data Decimal (Presisi Tinggi)
+
+### NUMERIC atau DECIMAL
+
+- Ukuran: Variabel (tergantung presisi)
+- Presisi: Tepat, tidak ada kesalahan pembulatan
+- Format: `NUMERIC(precision, scale)` atau `DECIMAL(precision, scale)`
+  - `precision`: Total jumlah digit
+  - `scale`: Jumlah digit di belakang koma
+- Cocok untuk: Perhitungan keuangan, harga, nilai yang butuh akurasi tinggi
+
+```sql
+CREATE TABLE products (
+    id INT PRIMARY KEY,
+    price NUMERIC(10, 2),  -- Maksimal 10 digit, 2 di belakang koma (contoh: 99999999.99)
+    discount DECIMAL(5, 2)  -- Maksimal 5 digit, 2 di belakang koma (contoh: 999.99)
+);
+
+INSERT INTO products (id, price, discount) VALUES
+    (1, 125000.50, 10.25),
+    (2, 99.99, 5.00);
+```
+
+Contoh penggunaan `NUMERIC`:
+
+- `NUMERIC(5, 2)`: Bisa menyimpan nilai seperti `999.99`, `-999.99`
+- `NUMERIC(10, 0)`: Bisa menyimpan bilangan bulat hingga 10 digit tanpa desimal
+- `NUMERIC`: Tanpa parameter, bisa menyimpan nilai dengan presisi penuh (tidak direkomendasikan untuk _production_)
+
+## Tipe Data Floating Point
+
+### REAL atau FLOAT4
+
+- Ukuran: 4 bytes
+- Presisi: Sekitar 6 digit desimal
+- Catatan: Bisa ada kesalahan pembulatan, tidak tepat untuk perhitungan keuangan
+
+```sql
+CREATE TABLE measurements (
+    id INT PRIMARY KEY,
+    temperature REAL,  -- Suhu tidak perlu presisi tinggi
+    weight REAL
+);
+
+INSERT INTO measurements (id, temperature, weight) VALUES (1, 25.5, 70.3);
+```
+
+### DOUBLE PRECISION atau FLOAT8
+
+- Ukuran: 8 bytes
+- Presisi: Sekitar 15 digit desimal
+- Catatan: Lebih presisi dari `REAL`, tapi tetap bisa ada kesalahan pembulatan
+
+```sql
+CREATE TABLE scientific_data (
+    id INT PRIMARY KEY,
+    value DOUBLE PRECISION  -- Untuk data ilmiah yang butuh presisi lebih tinggi
+);
+
+INSERT INTO scientific_data (id, value) VALUES (1, 3.141592653589793);
+```
+
+> **Peringatan:** Hindari menggunakan `REAL` atau `DOUBLE PRECISION` untuk perhitungan keuangan atau nilai yang butuh akurasi tinggi. Gunakan `NUMERIC` atau `DECIMAL` sebagai gantinya.
+
+## Tipe Data Serial (Auto-Increment)
+
+Serial adalah tipe data khusus untuk membuat nilai unik yang bertambah otomatis. Di belakang layar, PostgreSQL membuat sequence dan menggunakan tipe integer yang sesuai.
+
+### SMALLSERIAL
+
+- Setara dengan: `SMALLINT` + auto-increment
+- Rentang: 1 sampai 32,767
+
+```sql
+CREATE TABLE categories (
+    id SMALLSERIAL PRIMARY KEY,  -- Auto-increment dari 1
+    name VARCHAR(255)
+);
+
+INSERT INTO categories (name) VALUES ('Electronics');  -- id otomatis jadi 1
+INSERT INTO categories (name) VALUES ('Clothing');     -- id otomatis jadi 2
+```
+
+### SERIAL
+
+- Setara dengan: `INTEGER` + auto-increment
+- Rentang: 1 sampai 2,147,483,647
+- Ini adalah tipe serial yang paling sering digunakan
+
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,  -- Auto-increment dari 1
+    name VARCHAR(255),
+    email VARCHAR(255)
+);
+
+INSERT INTO users (name, email) VALUES ('Andi', 'andi@example.com');  -- id = 1
+INSERT INTO users (name, email) VALUES ('Budi', 'budi@example.com');  -- id = 2
+```
+
+### BIGSERIAL
+
+- Setara dengan: `BIGINT` + auto-increment
+- Rentang: 1 sampai 9,223,372,036,854,775,807
+
+```sql
+CREATE TABLE large_table (
+    id BIGSERIAL PRIMARY KEY,  -- Untuk tabel yang akan punya banyak data
+    data TEXT
+);
+```
+
+## Kapan Menggunakan Tipe Data Apa?
+
+### Gunakan SMALLINT jika:
+
+- Nilai pasti tidak akan melebihi 32,767
+- Ingin menghemat ruang penyimpanan
+- Contoh: umur, rating 1-5, status code
+
+### Gunakan INTEGER jika:
+
+- Sebagian besar kasus penggunaan
+- ID, jumlah, counter
+- Tidak yakin pakai apa? Pakai `INTEGER`
+
+### Gunakan BIGINT jika:
+
+- Nilai bisa sangat besar (jutaan, milyaran)
+- ID untuk sistem yang skalanya besar
+- Contoh: jumlah follower, jumlah view
+
+### Gunakan NUMERIC/DECIMAL jika:
+
+- Perhitungan keuangan (harga, saldo, transaksi)
+- Nilai yang butuh akurasi tinggi tanpa kesalahan pembulatan
+- Contoh: harga produk, nilai investasi, perhitungan pajak
+
+### Gunakan REAL/DOUBLE PRECISION jika:
+
+- Data ilmiah atau engineering
+- Nilai yang tidak butuh presisi sempurna
+- Contoh: suhu, koordinat GPS, pengukuran sensor
+
+### Gunakan SERIAL jika:
+
+- Kolom primary key yang auto-increment
+- Tidak perlu menentukan ID manual
+- Contoh: `id` di hampir semua tabel
+
+## Contoh Praktis
+
+Mari kita lihat contoh tabel yang menggunakan berbagai tipe data angka:
+
+```sql
+CREATE TABLE ecommerce_orders (
+    id SERIAL PRIMARY KEY,                    -- Auto-increment ID
+    user_id INT,                              -- ID user (INTEGER cukup)
+    item_count SMALLINT,                      -- Jumlah item (maksimal 32,767)
+    total_price NUMERIC(10, 2),               -- Harga total (presisi tinggi)
+    discount_percentage REAL                  -- Persentase diskon (tidak perlu presisi tinggi)
+);
+
+INSERT INTO ecommerce_orders (user_id, item_count, total_price, discount_percentage) VALUES
+    (1, 5, 125000.50, 10.5),
+    (2, 2, 99000.00, 5.0),
+    (3, 100, 5000000.75, 15.25);
+```
+
+> Untuk mempelajari cara mengubah tipe data menggunakan casting, baca materi: [Casting Tipe Data](../../basic/06-casting-types)
+
+## Referensi
+
+- `SMALLINT`: Bilangan bulat 2-byte (-32,768 sampai 32,767)
+- `INTEGER` / `INT`: Bilangan bulat 4-byte (-2,147,483,648 sampai 2,147,483,647)
+- `BIGINT`: Bilangan bulat 8-byte (rentang sangat besar)
+- `NUMERIC(p, s)` / `DECIMAL(p, s)`: Bilangan desimal dengan presisi tinggi
+- `REAL` / `FLOAT4`: Floating-point 4-byte (presisi ~6 digit)
+- `DOUBLE PRECISION` / `FLOAT8`: Floating-point 8-byte (presisi ~15 digit)
+- `SERIAL`: Auto-increment INTEGER
+- `SMALLSERIAL`: Auto-increment SMALLINT
+- `BIGSERIAL`: Auto-increment BIGINT
+- [Casting Tipe Data](../../basic/06-casting-types)

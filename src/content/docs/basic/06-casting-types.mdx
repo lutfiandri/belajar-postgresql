@@ -1,0 +1,181 @@
+---
+title: Casting Tipe Data
+description: Penjelasan lengkap tentang cara mengubah tipe data menggunakan casting di PostgreSQL
+---
+
+Casting adalah cara untuk mengubah tipe data dari satu tipe ke tipe lain. Di PostgreSQL, ada beberapa cara untuk melakukan casting.
+
+## TL;DR
+
+PostgreSQL menyediakan dua cara untuk casting:
+
+- **`::` (PostgreSQL style)**: `value::TYPE` - lebih singkat dan populer
+- **`CAST()` (SQL standard)**: `CAST(value AS TYPE)` - standar SQL
+
+## Sintaks Casting
+
+Ada dua cara utama untuk casting di PostgreSQL:
+
+1. **Menggunakan `::` (PostgreSQL style)**:
+
+   ```sql
+   value::TYPE
+   ```
+
+2. **Menggunakan `CAST()` (SQL standard)**:
+   ```sql
+   CAST(value AS TYPE)
+   ```
+
+Kedua cara ini menghasilkan hasil yang sama. Tapi `::` lebih singkat dan lebih sering digunakan di PostgreSQL.
+
+## Contoh Casting
+
+### Casting String ke Integer
+
+```sql
+-- String ke INTEGER
+SELECT '123'::INT;  -- Hasil: 123
+SELECT CAST('456' AS INT);  -- Hasil: 456
+
+-- Contoh penggunaan: parsing ID dari string
+SELECT * FROM users WHERE id = '100'::INT;
+```
+
+### Casting Integer ke String
+
+```sql
+-- INTEGER ke String
+SELECT 123::VARCHAR;  -- Hasil: '123'
+SELECT CAST(456 AS VARCHAR);  -- Hasil: '456'
+
+-- Contoh penggunaan: menggabungkan ID dengan teks
+SELECT 'User ID: ' || id::VARCHAR FROM users;
+```
+
+### Casting ke NUMERIC/DECIMAL
+
+```sql
+-- INTEGER ke NUMERIC
+SELECT 100::NUMERIC(10, 2);  -- Hasil: 100.00
+
+-- REAL ke NUMERIC (untuk presisi tinggi)
+SELECT 99.99::REAL::NUMERIC(10, 2);  -- Hasil: 99.99
+
+-- Contoh penggunaan: menghitung dengan presisi tinggi
+SELECT price::NUMERIC(10, 2) * 1.1 AS price_with_tax FROM products;
+```
+
+### Casting ke Integer
+
+```sql
+-- NUMERIC ke INTEGER (akan dibulatkan ke bawah)
+SELECT 99.99::INT;  -- Hasil: 99
+SELECT 100.5::INT;   -- Hasil: 100
+
+-- REAL ke INTEGER
+SELECT 25.7::REAL::INT;  -- Hasil: 25
+
+-- Contoh penggunaan: membulatkan harga ke bilangan bulat
+SELECT ROUND(price)::INT AS rounded_price FROM products;
+```
+
+### Casting antar Tipe Integer
+
+```sql
+-- SMALLINT ke INTEGER
+SELECT 100::SMALLINT::INT;  -- Hasil: 100
+
+-- INTEGER ke BIGINT
+SELECT 1000::INT::BIGINT;  -- Hasil: 1000
+
+-- Contoh penggunaan: upgrade tipe data saat query
+SELECT id::BIGINT FROM small_table;
+```
+
+## Kapan Menggunakan Casting?
+
+### 1. Perhitungan dengan Presisi Tinggi
+
+Saat melakukan operasi matematika yang butuh presisi tinggi, terutama untuk keuangan:
+
+```sql
+-- Tanpa casting: hasil bisa tidak presisi
+SELECT 10.5 * 1.1;  -- Bisa menghasilkan 11.550000000000001
+
+-- Dengan casting ke NUMERIC: hasil presisi
+SELECT (10.5::NUMERIC(10, 2) * 1.1::NUMERIC(10, 2))::NUMERIC(10, 2);
+-- Hasil: 11.55
+```
+
+### 2. Fungsi yang Membutuhkan Tipe Data Tertentu
+
+Beberapa fungsi PostgreSQL membutuhkan tipe data tertentu:
+
+```sql
+-- ROUND() untuk NUMERIC butuh casting ke numeric
+SELECT ROUND(price::NUMERIC, 2) FROM products;
+
+-- Contoh dari soal LeetCode sebelumnya
+SELECT ROUND(AVG(a2.timestamp - a1.timestamp)::numeric, 3) AS processing_time
+FROM Activity a1
+JOIN Activity a2 ON a1.machine_id = a2.machine_id;
+```
+
+### 3. Perbandingan Tipe Data Berbeda
+
+Saat membandingkan nilai dengan tipe data berbeda:
+
+```sql
+-- Membandingkan INTEGER dengan VARCHAR
+SELECT * FROM users WHERE id::VARCHAR = '100';
+
+-- Membandingkan NUMERIC dengan REAL
+SELECT * FROM products WHERE price::REAL = 99.99;
+```
+
+### 4. Konversi untuk Tampilan
+
+Mengubah format data untuk ditampilkan:
+
+```sql
+-- Menampilkan ID dengan format tertentu
+SELECT 'ID-' || id::VARCHAR AS formatted_id FROM users;
+
+-- Menampilkan harga dengan format rupiah
+SELECT 'Rp ' || price::NUMERIC(10, 2)::VARCHAR AS formatted_price FROM products;
+```
+
+## Catatan Penting Casting
+
+1. **Kehilangan Presisi**: Casting dari tipe presisi tinggi ke rendah bisa kehilangan data:
+
+   ```sql
+   SELECT 99.99::INT;  -- Hasil: 99 (kehilangan .99)
+   ```
+
+2. **Overflow**: Casting ke tipe yang lebih kecil bisa menyebabkan error jika nilai terlalu besar:
+
+   ```sql
+   SELECT 50000::SMALLINT;  -- Error: nilai melebihi rentang SMALLINT
+   ```
+
+3. **Casting Berantai**: Bisa melakukan casting berantai jika perlu:
+
+   ```sql
+   SELECT '100'::INT::BIGINT::VARCHAR;  -- String → INT → BIGINT → String
+   ```
+
+4. **NULL Handling**: Casting `NULL` akan menghasilkan `NULL`:
+   ```sql
+   SELECT NULL::INT;  -- Hasil: NULL
+   ```
+
+## Referensi
+
+- `::`: Sintaks casting PostgreSQL style (`value::TYPE`)
+- `CAST()`: Sintaks casting SQL standard (`CAST(value AS TYPE)`)
+- Casting String: `'123'::INT`, `123::VARCHAR`
+- Casting Numeric: `100::NUMERIC(10, 2)`, `99.99::INT`
+- Casting Integer: `100::SMALLINT::INT`, `1000::INT::BIGINT`
+- [Tipe Data Angka](../../basic/02-number-types)
