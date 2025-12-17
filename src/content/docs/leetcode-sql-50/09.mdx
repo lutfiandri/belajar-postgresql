@@ -1,0 +1,156 @@
+---
+title: Rising Temperature
+description: Rising Temperature
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Basic Joins" variant="note" />
+
+Cari `id` dari tanggal yang suhunya lebih tinggi dibanding hari sebelumnya menggunakan self-join dengan `INTERVAL` untuk membandingkan tanggal.
+
+https://leetcode.com/problems/rising-temperature
+
+## Soal
+
+> Table: `Weather`
+>
+> ```
+> +---------------+---------+
+> | Column Name   | Type    |
+> +---------------+---------+
+> | id            | int     |
+> | recordDate    | date    |
+> | temperature   | int     |
+> +---------------+---------+
+> ```
+>
+> `id` is the column with unique values for this table.
+>
+> There are no different rows with the same `recordDate`.
+>
+> This table contains information about the temperature on a certain day.
+
+Write a solution to find all dates' `id` with higher temperatures compared to its previous dates (yesterday).
+
+Return the result table in **any order**.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Weather` table:
+>
+> ```
+> +----+------------+-------------+
+> | id | recordDate | temperature |
+> +----+------------+-------------+
+> | 1  | 2015-01-01 | 10          |
+> | 2  | 2015-01-02 | 25          |
+> | 3  | 2015-01-03 | 20          |
+> | 4  | 2015-01-04 | 30          |
+> +----+------------+-------------+
+> ```
+>
+> Output:
+>
+> ```
+> +----+
+> | id |
+> +----+
+> | 2  |
+> | 4  |
+> +----+
+> ```
+>
+> Explanation:
+>
+> - In 2015-01-02, the temperature was higher than the previous day (10 -> 25).
+> - In 2015-01-04, the temperature was higher than the previous day (20 -> 30).
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Weather (
+    id INT PRIMARY KEY,
+    recordDate DATE,
+    temperature INT
+);
+
+INSERT INTO Weather (id, recordDate, temperature) VALUES
+    (1, '2015-01-01', 10),
+    (2, '2015-01-02', 25),
+    (3, '2015-01-03', 20),
+    (4, '2015-01-04', 30);
+```
+
+## Jawaban SQL
+
+```sql "w1.recorddate = w2.recorddate - INTERVAL '1 day'" "w2.temperature - w1.temperature > 0" "- INTERVAL '1 day'"
+SELECT w2.id
+FROM Weather w1
+    LEFT JOIN Weather w2 ON w1.recordDate = w2.recordDate - INTERVAL '1 day'
+WHERE w2.temperature - w1.temperature > 0;
+```
+
+## Penjelasan
+
+Soal ini meminta kita mencari tanggal yang suhunya lebih tinggi dari hari sebelumnya.
+
+Mari kita breakdown query-nya step by step:
+
+1. Cara mendapatkan hari kemarin dengan `- INTERVAL '1 day'`: Di PostgreSQL, kita bisa menggunakan `- INTERVAL '1 day'` untuk mengurangi 1 hari dari tanggal. Contoh: `'2015-01-02' - INTERVAL '1 day'` menghasilkan `'2015-01-01'`.
+
+2. `FROM Weather w1 LEFT JOIN Weather w2 ON w1.recordDate = w2.recordDate - INTERVAL '1 day'`: Kita join tabel `Weather` dengan dirinya sendiri.
+
+   - `w1` mewakili hari sebelumnya (yesterday)
+   - `w2` mewakili hari yang sedang kita cek (today)
+   - Kondisi join mencocokkan tanggal hari ini dengan tanggal kemarin
+
+   > **Note:** Ini disebut self-join karena kita join tabel dengan dirinya sendiri. Tapi tetap menggunakan `LEFT JOIN`, jadi semua baris dari `w2` akan muncul meskipun tidak ada hari sebelumnya yang cocok.
+
+   Setelah LEFT JOIN, tabel hasilnya akan terlihat seperti ini:
+
+   ```
+   +-------+-------------+----------------+-------+---------------+----------------+
+   | w1.id | w1.recordDate | w1.temperature | w2.id | w2.recordDate | w2.temperature |
+   +-------+-------------+----------------+-------+---------------+----------------+
+   | NULL  | NULL          | NULL           | 1     | 2015-01-01    | 10             |
+   | 1     | 2015-01-01    | 10             | 2     | 2015-01-02    | 25             |
+   | 2     | 2015-01-02    | 25             | 3     | 2015-01-03    | 20             |
+   | 3     | 2015-01-03    | 20             | 4     | 2015-01-04    | 30             |
+   +-------+-------------+----------------+-------+---------------+----------------+
+   ```
+
+3. `WHERE w2.temperature - w1.temperature > 0`: Filter hanya baris di mana suhu hari ini lebih besar dari suhu hari sebelumnya.
+
+4. `SELECT w2.id`: Tampilkan `id` dari hari yang suhunya lebih tinggi dari hari sebelumnya.
+
+Dari contoh data:
+
+- 2015-01-02: suhu naik dari 10 ke 25 → masuk hasil (`id = 2`)
+- 2015-01-03: suhu turun dari 25 ke 20 → tidak masuk hasil
+- 2015-01-04: suhu naik dari 20 ke 30 → masuk hasil (`id = 4`)
+
+Hasil akhir: `id = 2` dan `id = 4`.
+
+> Kalau kamu masih bingung dengan `JOIN` dan kenapa menggunakan `LEFT JOIN`, coba baca dulu materi ini yaa!
+> [Memahami 4 Jenis JOIN](../../basic/01-join)
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data utama.
+- `LEFT JOIN`: Menggabungkan dua tabel dengan mempertahankan semua baris dari tabel kiri, bahkan jika tidak ada yang cocok di tabel kanan.
+- Self-Join: Teknik join tabel dengan dirinya sendiri, biasanya dengan alias yang berbeda untuk membedakan peran masing-masing.
+- `ON`: Menentukan kondisi untuk menggabungkan baris dari kedua tabel.
+- `INTERVAL '1 day'`: Mengurangi atau menambah 1 hari pada tipe data `DATE` atau `TIMESTAMP`.
+- `WHERE`: Memfilter baris berdasarkan kondisi tertentu.
+- Operasi aritmatika pada kolom: Bisa melakukan pengurangan, penjumlahan, dll pada kolom numerik.
+- `AS` / Alias: Memberi nama singkat untuk tabel (contoh: `w1` dan `w2` untuk `Weather`).
+- [Memahami 4 Jenis JOIN](../../basic/01-join)
