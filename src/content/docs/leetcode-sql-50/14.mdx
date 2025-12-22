@@ -1,0 +1,249 @@
+---
+title: Confirmation Rate
+description: Confirmation Rate
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Medium" variant="note" />
+<Badge text="Basic Joins" variant="note" />
+
+Hitung confirmation rate setiap user dengan membagi jumlah `'confirmed'` dengan total request menggunakan `LEFT JOIN`, `CASE WHEN`, `AVG()`, dan `ROUND()`.
+
+https://leetcode.com/problems/confirmation-rate
+
+## Soal
+
+> Table: `Signups`
+>
+> ```
+> +----------------+----------+
+> | Column Name    | Type     |
+> +----------------+----------+
+> | user_id        | int      |
+> | time_stamp     | datetime |
+> +----------------+----------+
+> ```
+>
+> `user_id` is the column of unique values for this table.
+>
+> Each row contains information about the signup time for the user with ID `user_id`.
+>
+> Table: `Confirmations`
+>
+> ```
+> +----------------+----------+
+> | Column Name    | Type     |
+> +----------------+----------+
+> | user_id        | int      |
+> | time_stamp     | datetime |
+> | action         | ENUM     |
+> +----------------+----------+
+> ```
+>
+> (`user_id`, `time_stamp`) is the primary key (combination of columns with unique values) for this table.
+>
+> `user_id` is a foreign key (reference column) to the Signups table.
+>
+> `action` is an ENUM (category) of the type ('confirmed', 'timeout')
+>
+> Each row of this table indicates that the user with ID `user_id` requested a confirmation message at `time_stamp` and that confirmation message was either confirmed ('confirmed') or expired without confirming ('timeout').
+
+The **confirmation rate** of a user is the number of `'confirmed'` messages divided by the total number of requested confirmation messages. The confirmation rate of a user that did not request any confirmation messages is `0`. Round the confirmation rate to two decimal places.
+
+Write a solution to find the **confirmation rate** of each user.
+
+Return the result table in **any order**.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Signups` table:
+>
+> ```
+> +---------+---------------------+
+> | user_id | time_stamp          |
+> +---------+---------------------+
+> | 3       | 2020-03-21 10:16:13 |
+> | 7       | 2020-01-04 13:57:59 |
+> | 2       | 2020-07-29 23:09:44 |
+> | 6       | 2020-12-09 10:39:37 |
+> +---------+---------------------+
+> ```
+>
+> `Confirmations` table:
+>
+> ```
+> +---------+---------------------+-----------+
+> | user_id | time_stamp          | action    |
+> +---------+---------------------+-----------+
+> | 3       | 2021-01-06 03:30:46 | timeout   |
+> | 3       | 2021-07-14 14:00:00 | timeout   |
+> | 7       | 2021-06-12 11:57:29 | confirmed |
+> | 7       | 2021-06-13 12:58:28 | confirmed |
+> | 7       | 2021-06-14 13:59:27 | confirmed |
+> | 2       | 2021-01-22 00:00:00 | confirmed |
+> | 2       | 2021-02-28 23:59:59 | timeout   |
+> +---------+---------------------+-----------+
+> ```
+>
+> Output:
+>
+> ```
+> +---------+-------------------+
+> | user_id | confirmation_rate |
+> +---------+-------------------+
+> | 6       | 0.00              |
+> | 3       | 0.00              |
+> | 7       | 1.00              |
+> | 2       | 0.50              |
+> +---------+-------------------+
+> ```
+>
+> **Explanation:**
+>
+> - User 6 did not request any confirmation messages. The confirmation rate is 0.
+> - User 3 made 2 requests and both timed out. The confirmation rate is 0.
+> - User 7 made 3 requests and all were confirmed. The confirmation rate is 1.
+> - User 2 made 2 requests where one was confirmed and the other timed out. The confirmation rate is 1 / 2 = 0.5.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Signups (
+    user_id INT PRIMARY KEY,
+    time_stamp TIMESTAMP
+);
+
+CREATE TABLE Confirmations (
+    user_id INT,
+    time_stamp TIMESTAMP,
+    action VARCHAR(20) CHECK (action IN ('confirmed', 'timeout')),
+    PRIMARY KEY (user_id, time_stamp),
+    FOREIGN KEY (user_id) REFERENCES Signups(user_id)
+);
+
+INSERT INTO Signups (user_id, time_stamp) VALUES
+    (3, '2020-03-21 10:16:13'),
+    (7, '2020-01-04 13:57:59'),
+    (2, '2020-07-29 23:09:44'),
+    (6, '2020-12-09 10:39:37');
+
+INSERT INTO Confirmations (user_id, time_stamp, action) VALUES
+    (3, '2021-01-06 03:30:46', 'timeout'),
+    (3, '2021-07-14 14:00:00', 'timeout'),
+    (7, '2021-06-12 11:57:29', 'confirmed'),
+    (7, '2021-06-13 12:58:28', 'confirmed'),
+    (7, '2021-06-14 13:59:27', 'confirmed'),
+    (2, '2021-01-22 00:00:00', 'confirmed'),
+    (2, '2021-02-28 23:59:59', 'timeout');
+```
+
+## Jawaban SQL
+
+```sql "CASE WHEN c.action = 'confirmed' THEN 1 ELSE 0 END"
+SELECT
+    s.user_id,
+    ROUND(AVG(CASE WHEN c.action = 'confirmed' THEN 1 ELSE 0 END), 2) AS confirmation_rate
+FROM Signups s
+    LEFT JOIN Confirmations c ON s.user_id = c.user_id
+GROUP BY s.user_id;
+```
+
+## Penjelasan
+
+Soal ini meminta kita menghitung confirmation rate setiap user. Confirmation rate adalah jumlah 'confirmed' dibagi dengan total request. Jika user tidak pernah request, confirmation rate-nya adalah 0.
+
+Mari kita breakdown query-nya step by step:
+
+1. **LEFT JOIN**: `FROM Signups s LEFT JOIN Confirmations c ON s.user_id = c.user_id` menggabungkan tabel `Signups` dengan `Confirmations`.
+
+   - `s` mewakili tabel `Signups` (tabel utama)
+   - `c` mewakili tabel `Confirmations`
+   - Kondisi join: `s.user_id = c.user_id` - mencocokkan berdasarkan `user_id`
+   - Dengan LEFT JOIN, semua user dari `Signups` tetap muncul, meskipun tidak ada request di `Confirmations` (kolom dari `Confirmations` akan `NULL`)
+
+   Setelah LEFT JOIN, hasilnya akan seperti ini:
+
+   ```
+   +---------+---------------------+---------+---------------------+-----------+
+   | user_id | time_stamp          | user_id | time_stamp          | action    |
+   +---------+---------------------+---------+---------------------+-----------+
+   | 3       | 2020-03-21 10:16:13 | 3       | 2021-01-06 03:30:46 | timeout   |
+   | 3       | 2020-03-21 10:16:13 | 3       | 2021-07-14 14:00:00 | timeout   |
+   | 7       | 2020-01-04 13:57:59 | 7       | 2021-06-12 11:57:29 | confirmed |
+   | 7       | 2020-01-04 13:57:59 | 7       | 2021-06-13 12:58:28 | confirmed |
+   | 7       | 2020-01-04 13:57:59 | 7       | 2021-06-14 13:59:27 | confirmed |
+   | 2       | 2020-07-29 23:09:44 | 2       | 2021-01-22 00:00:00 | confirmed |
+   | 2       | 2020-07-29 23:09:44 | 2       | 2021-02-28 23:59:59 | timeout   |
+   | 6       | 2020-12-09 10:39:37 | NULL    | NULL                | NULL      |
+   +---------+---------------------+---------+---------------------+-----------+
+   ```
+
+   Perhatikan bahwa:
+
+   - User 3: ada 2 request (keduanya timeout)
+   - User 7: ada 3 request (semuanya confirmed)
+   - User 2: ada 2 request (1 confirmed, 1 timeout)
+   - User 6: tidak ada request (semua kolom dari `Confirmations` adalah `NULL`)
+
+2. **CASE**: `CASE WHEN c.action = 'confirmed' THEN 1 ELSE 0 END` mengkonversi action menjadi angka:
+
+   - Jika `action = 'confirmed'` → hasilnya `1`
+   - Jika `action = 'timeout'` atau `NULL` → hasilnya `0`
+
+   Setelah `CASE`, untuk setiap baris hasilnya akan seperti ini:
+
+   ```
+   +---------+---------------------+---------+---------------------+-----------+-------+
+   | user_id | time_stamp          | user_id | time_stamp          | action    | CASE  |
+   +---------+---------------------+---------+---------------------+-----------+-------+
+   | 3       | 2020-03-21 10:16:13 | 3       | 2021-01-06 03:30:46 | timeout   | 0     |
+   | 3       | 2020-03-21 10:16:13 | 3       | 2021-07-14 14:00:00 | timeout   | 0     |
+   | 7       | 2020-01-04 13:57:59 | 7       | 2021-06-12 11:57:29 | confirmed | 1     |
+   | 7       | 2020-01-04 13:57:59 | 7       | 2021-06-13 12:58:28 | confirmed | 1     |
+   | 7       | 2020-01-04 13:57:59 | 7       | 2021-06-14 13:59:27 | confirmed | 1     |
+   | 2       | 2020-07-29 23:09:44 | 2       | 2021-01-22 00:00:00 | confirmed | 1     |
+   | 2       | 2020-07-29 23:09:44 | 2       | 2021-02-28 23:59:59 | timeout   | 0     |
+   | 6       | 2020-12-09 10:39:37 | NULL    | NULL                | NULL      | 0     |
+   +---------+---------------------+---------+---------------------+-----------+-------+
+   ```
+
+3. **GROUP BY**: `GROUP BY s.user_id` mengelompokkan baris berdasarkan user.
+
+4. **AVG()**: `AVG(CASE WHEN c.action = 'confirmed' THEN 1 ELSE 0 END)` menghitung rata-rata nilai CASE untuk setiap user.
+
+   - User 3: `AVG(0, 0) = 0.00`
+   - User 7: `AVG(1, 1, 1) = 1.00`
+   - User 2: `AVG(1, 0) = 0.50`
+   - User 6: `AVG(0) = 0.00` (karena `NULL` di CASE WHEN menjadi 0)
+
+5. **ROUND()**: `ROUND(..., 2)` membulatkan hasil ke 2 desimal.
+
+   - User 3: `0.00`
+   - User 7: `1.00`
+   - User 2: `0.50`
+   - User 6: `0.00`
+
+> Kalau kamu masih bingung dengan `JOIN` dan kenapa menggunakan `LEFT JOIN`, coba baca dulu materi ini yaa!
+> [Memahami 4 Jenis JOIN](../../basic/02-01-4-joins)
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data utama.
+- `LEFT JOIN`: Menggabungkan dua tabel dengan mempertahankan semua baris dari tabel kiri, bahkan jika tidak ada yang cocok di tabel kanan.
+- `ON`: Menentukan kondisi untuk menggabungkan baris dari kedua tabel.
+- `GROUP BY`: Mengelompokkan baris berdasarkan nilai kolom tertentu.
+- `CASE WHEN ... THEN ... ELSE ... END`: Ekspresi kondisional untuk mengembalikan nilai berbeda berdasarkan kondisi.
+- `AVG()`: Menghitung rata-rata nilai dalam setiap grup.
+- `ROUND(value, decimal_places)`: Membulatkan nilai ke jumlah desimal tertentu.
+- `AS`: Memberi alias untuk kolom hasil query.
+- Foreign Key: Kolom yang merujuk ke primary key di tabel lain, memastikan integritas data.
+- ENUM: Tipe data yang membatasi nilai kolom pada pilihan tertentu.
+- [Memahami 4 Jenis JOIN](../../basic/02-01-4-joins)
