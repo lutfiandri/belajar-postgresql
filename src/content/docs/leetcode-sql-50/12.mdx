@@ -1,0 +1,339 @@
+---
+title: Students and Examinations
+description: Students and Examinations
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Basic Joins" variant="note" />
+
+Hitung berapa kali setiap siswa mengikuti setiap ujian menggunakan `CROSS JOIN` untuk membuat kombinasi semua siswa dengan semua mata pelajaran, lalu `LEFT JOIN` dengan tabel `Examinations` dan `GROUP BY` untuk menghitung jumlahnya.
+
+https://leetcode.com/problems/students-and-examinations
+
+## Soal
+
+> Table: `Students`
+>
+> ```
+> +---------------+---------+
+> | Column Name   | Type    |
+> +---------------+---------+
+> | student_id    | int     |
+> | student_name  | varchar |
+> +---------------+---------+
+> ```
+>
+> `student_id` is the primary key (column with unique values) for this table.
+>
+> Each row of this table contains the ID and the name of one student in the school.
+>
+> Table: `Subjects`
+>
+> ```
+> +--------------+---------+
+> | Column Name  | Type    |
+> +--------------+---------+
+> | subject_name | varchar |
+> +--------------+---------+
+> ```
+>
+> `subject_name` is the primary key (column with unique values) for this table.
+>
+> Each row of this table contains the name of one subject in the school.
+>
+> Table: `Examinations`
+>
+> ```
+> +--------------+---------+
+> | Column Name  | Type    |
+> +--------------+---------+
+> | student_id   | int     |
+> | subject_name | varchar |
+> +--------------+---------+
+> ```
+>
+> There is no primary key (column with unique values) for this table. It may contain duplicates.
+>
+> Each student from the Students table takes every course from the Subjects table.
+>
+> Each row of this table indicates that a student with ID `student_id` attended the exam of `subject_name`.
+
+Write a solution to find the number of times each student attended each exam.
+
+Return the result table ordered by `student_id` and `subject_name`.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Students` table:
+>
+> ```
+> +------------+--------------+
+> | student_id | student_name |
+> +------------+--------------+
+> | 1          | Alice        |
+> | 2          | Bob          |
+> | 13         | John         |
+> | 6          | Alex         |
+> +------------+--------------+
+> ```
+>
+> `Subjects` table:
+>
+> ```
+> +--------------+
+> | subject_name |
+> +--------------+
+> | Math         |
+> | Physics      |
+> | Programming  |
+> +--------------+
+> ```
+>
+> `Examinations` table:
+>
+> ```
+> +------------+--------------+
+> | student_id | subject_name |
+> +------------+--------------+
+> | 1          | Math         |
+> | 1          | Physics      |
+> | 1          | Programming  |
+> | 2          | Programming  |
+> | 1          | Physics      |
+> | 1          | Math         |
+> | 13         | Math         |
+> | 13         | Programming  |
+> | 13         | Physics      |
+> | 2          | Math         |
+> | 1          | Math         |
+> +------------+--------------+
+> ```
+>
+> Output:
+>
+> ```
+> +------------+--------------+--------------+----------------+
+> | student_id | student_name | subject_name | attended_exams |
+> +------------+--------------+--------------+----------------+
+> | 1          | Alice        | Math         | 3              |
+> | 1          | Alice        | Physics      | 2              |
+> | 1          | Alice        | Programming  | 1              |
+> | 2          | Bob          | Math         | 1              |
+> | 2          | Bob          | Physics      | 0              |
+> | 2          | Bob          | Programming  | 1              |
+> | 6          | Alex         | Math         | 0              |
+> | 6          | Alex         | Physics      | 0              |
+> | 6          | Alex         | Programming  | 0              |
+> | 13         | John         | Math         | 1              |
+> | 13         | John         | Physics      | 1              |
+> | 13         | John         | Programming  | 1              |
+> +------------+--------------+--------------+----------------+
+> ```
+>
+> **Explanation:**
+>
+> The result table should contain all students and all subjects.
+>
+> Alice attended the Math exam 3 times, the Physics exam 2 times, and the Programming exam 1 time.
+>
+> Bob attended the Math exam 1 time, the Programming exam 1 time, and did not attend the Physics exam.
+>
+> Alex did not attend any exams.
+>
+> John attended the Math exam 1 time, the Physics exam 1 time, and the Programming exam 1 time.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Students (
+    student_id INT PRIMARY KEY,
+    student_name VARCHAR(255)
+);
+
+CREATE TABLE Subjects (
+    subject_name VARCHAR(255) PRIMARY KEY
+);
+
+CREATE TABLE Examinations (
+    student_id INT,
+    subject_name VARCHAR(255)
+);
+
+INSERT INTO Students (student_id, student_name) VALUES
+    (1, 'Alice'),
+    (2, 'Bob'),
+    (13, 'John'),
+    (6, 'Alex');
+
+INSERT INTO Subjects (subject_name) VALUES
+    ('Math'),
+    ('Physics'),
+    ('Programming');
+
+INSERT INTO Examinations (student_id, subject_name) VALUES
+    (1, 'Math'),
+    (1, 'Physics'),
+    (1, 'Programming'),
+    (2, 'Programming'),
+    (1, 'Physics'),
+    (1, 'Math'),
+    (13, 'Math'),
+    (13, 'Programming'),
+    (13, 'Physics'),
+    (2, 'Math'),
+    (1, 'Math');
+```
+
+## Jawaban SQL
+
+```sql "CROSS JOIN" "LEFT JOIN" "COUNT" "GROUP BY" "ORDER BY"
+SELECT
+    s.student_id,
+    s.student_name,
+    su.subject_name,
+    COUNT(e.student_id) AS attended_exams
+FROM Students s
+    CROSS JOIN Subjects su
+    LEFT JOIN Examinations e
+        ON s.student_id = e.student_id
+        AND su.subject_name = e.subject_name
+GROUP BY
+    s.student_id,
+    s.student_name,
+    su.subject_name
+ORDER BY
+    s.student_id,
+    su.subject_name;
+```
+
+> **Catatan**: Di query ini kita menggunakan `COUNT(e.student_id)` bukan `COUNT(*)`. Kenapa? Karena `COUNT(*)` akan menghitung semua baris dalam grup setelah `GROUP BY`, termasuk yang `NULL`. Jika siswa tidak pernah mengikuti ujian, setelah `LEFT JOIN` akan ada 1 baris dengan kolom `e` berisi `NULL`. Dengan `COUNT(*)`, hasilnya akan `1` (salah), sedangkan dengan `COUNT(e.student_id)`, hasilnya akan `0` (benar) karena `COUNT()` mengabaikan nilai `NULL`.
+
+## Penjelasan
+
+Soal ini meminta kita mencari berapa kali setiap siswa mengikuti setiap ujian. Hasilnya harus mencakup **semua kombinasi** siswa dan mata pelajaran, bahkan jika siswa tidak pernah mengikuti ujian tersebut (nilainya 0).
+
+Mari kita breakdown query-nya step by step:
+
+1. **CROSS JOIN untuk kombinasi**: `FROM Students s CROSS JOIN Subjects su` membuat kombinasi semua siswa dengan semua mata pelajaran.
+
+   `CROSS JOIN` menghasilkan Cartesian product - setiap baris dari tabel pertama dikombinasikan dengan setiap baris dari tabel kedua.
+
+   Hasil CROSS JOIN akan seperti ini:
+
+   ```
+   +------------+--------------+--------------+
+   | student_id | student_name | subject_name |
+   +------------+--------------+--------------+
+   | 1          | Alice        | Math         |
+   | 1          | Alice        | Physics      |
+   | 1          | Alice        | Programming  |
+   | 2          | Bob          | Math         |
+   | 2          | Bob          | Physics      |
+   | 2          | Bob          | Programming  |
+   | 6          | Alex         | Math         |
+   | 6          | Alex         | Physics      |
+   | 6          | Alex         | Programming  |
+   | 13         | John         | Math         |
+   | 13         | John         | Physics      |
+   | 13         | John         | Programming  |
+   +------------+--------------+--------------+
+   ```
+
+   Total: 4 siswa × 3 mata pelajaran = 12 kombinasi.
+
+2. **LEFT JOIN dengan Examinations**: `LEFT JOIN Examinations e ON s.student_id = e.student_id AND su.subject_name = e.subject_name` menggabungkan dengan tabel `Examinations`.
+
+   Dengan LEFT JOIN, semua kombinasi dari CROSS JOIN tetap muncul. Jika ada ujian yang cocok, baris dari `Examinations` akan muncul. Jika tidak ada yang cocok, kolom dari `Examinations` akan berisi `NULL`.
+
+   Setelah LEFT JOIN (sebelum GROUP BY), hasilnya akan seperti ini:
+
+   ```
+   +------------+--------------+--------------+------------+--------------+
+   | student_id | student_name | subject_name | student_id | subject_name |
+   +------------+--------------+--------------+------------+--------------+
+   | 1          | Alice        | Math         | 1          | Math         |
+   | 1          | Alice        | Math         | 1          | Math         |
+   | 1          | Alice        | Math         | 1          | Math         |
+   | 1          | Alice        | Physics      | 1          | Physics      |
+   | 1          | Alice        | Physics      | 1          | Physics      |
+   | 1          | Alice        | Programming  | 1          | Programming  |
+   | 2          | Bob          | Math         | 2          | Math         |
+   | 2          | Bob          | Physics      | NULL       | NULL         |
+   | 2          | Bob          | Programming  | 2          | Programming  |
+   | 6          | Alex         | Math         | NULL       | NULL         |
+   | 6          | Alex         | Physics      | NULL       | NULL         |
+   | 6          | Alex         | Programming  | NULL       | NULL         |
+   | 13         | John         | Math         | 13         | Math         |
+   | 13         | John         | Physics      | 13         | Physics      |
+   | 13         | John         | Programming  | 13         | Programming  |
+   +------------+--------------+--------------+------------+--------------+
+   ```
+
+   Perhatikan bahwa:
+
+   - Alice + Math: ada 3 baris dari `Examinations` yang cocok (Alice mengikuti Math 3 kali)
+   - Alice + Physics: ada 2 baris yang cocok (Alice mengikuti Physics 2 kali)
+   - Bob + Physics: tidak ada yang cocok, jadi kolom dari `Examinations` adalah `NULL`
+   - Alex: tidak ada yang cocok untuk semua mata pelajaran
+
+3. **GROUP BY**: `GROUP BY s.student_id, s.student_name, su.subject_name` mengelompokkan baris berdasarkan kombinasi siswa dan mata pelajaran.
+
+4. **COUNT(e.student_id)**: `COUNT(e.student_id)` menghitung jumlah baris dalam setiap grup. Penting untuk menggunakan `COUNT(e.student_id)` bukan `COUNT(*)` karena:
+
+   - `COUNT(*)` akan selalu menghitung semua baris dalam grup, termasuk yang `NULL`
+   - `COUNT(e.student_id)` akan menghitung hanya baris yang `e.student_id` tidak `NULL`
+   - Jika tidak ada yang cocok (semua kolom `e` adalah `NULL`), `COUNT(e.student_id)` akan menghasilkan `0`
+
+   Setelah GROUP BY dan COUNT, hasilnya akan seperti ini:
+
+   ```
+   +------------+--------------+--------------+----------------+
+   | student_id | student_name | subject_name | attended_exams |
+   +------------+--------------+--------------+----------------+
+   | 1          | Alice        | Math         | 3              |
+   | 1          | Alice        | Physics      | 2              |
+   | 1          | Alice        | Programming  | 1              |
+   | 2          | Bob          | Math         | 1              |
+   | 2          | Bob          | Physics      | 0              |
+   | 2          | Bob          | Programming  | 1              |
+   | 6          | Alex         | Math         | 0              |
+   | 6          | Alex         | Physics      | 0              |
+   | 6          | Alex         | Programming  | 0              |
+   | 13         | John         | Math         | 1              |
+   | 13         | John         | Physics      | 1              |
+   | 13         | John         | Programming  | 1              |
+   +------------+--------------+--------------+----------------+
+   ```
+
+5. **ORDER BY**: `ORDER BY s.student_id, su.subject_name` mengurutkan hasil berdasarkan `student_id` terlebih dahulu, lalu `subject_name`.
+
+Hasil akhir sesuai dengan output contoh.
+
+> Kalau kamu masih bingung dengan `JOIN` dan kenapa menggunakan `CROSS JOIN` dan `LEFT JOIN`, coba baca dulu materi ini yaa!
+>
+> [Memahami 4 Jenis JOIN](../../basic/02-01-4-joins)
+>
+> [Memahami CROSS JOIN](../../basic/02-02-cross-join)
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data utama.
+- `CROSS JOIN`: Membuat kombinasi Cartesian product dari dua tabel (setiap baris dari tabel pertama dikombinasikan dengan setiap baris dari tabel kedua).
+- `LEFT JOIN`: Menggabungkan dua tabel dengan mempertahankan semua baris dari tabel kiri, bahkan jika tidak ada yang cocok di tabel kanan.
+- `ON`: Menentukan kondisi untuk menggabungkan baris dari kedua tabel.
+- `GROUP BY`: Mengelompokkan baris berdasarkan nilai kolom tertentu.
+- `COUNT(column)`: Menghitung jumlah baris yang nilai kolomnya tidak `NULL` dalam setiap grup. `COUNT(e.student_id)` akan menghasilkan `0` jika semua nilai `NULL`.
+- `ORDER BY`: Mengurutkan hasil query berdasarkan kolom tertentu.
+- `AS`: Memberi alias untuk kolom hasil query.
+- `AND`: Menggabungkan beberapa kondisi dalam `ON` atau `WHERE`.
+- [Memahami 4 Jenis JOIN](../../basic/02-01-4-joins)
+- [Memahami CROSS JOIN](../../basic/02-02-cross-join)

@@ -1,0 +1,209 @@
+---
+title: Memahami CROSS JOIN
+description: Penjelasan lengkap tentang CROSS JOIN dengan contoh praktis
+---
+
+`CROSS JOIN` adalah jenis JOIN yang menghasilkan **Cartesian product** dari dua tabel - setiap baris dari tabel pertama dikombinasikan dengan setiap baris dari tabel kedua, tanpa kondisi apapun.
+
+## TL;DR
+
+`CROSS JOIN` menggabungkan **semua baris** dari tabel pertama dengan **semua baris** dari tabel kedua. Hasilnya adalah semua kemungkinan kombinasi.
+
+Jika tabel pertama punya `m` baris dan tabel kedua punya `n` baris, hasil `CROSS JOIN` akan punya `m × n` baris.
+
+## Setup Data
+
+Mari kita mulai dengan membuat dua tabel sederhana: `colors` dan `sizes`.
+
+```sql
+CREATE TABLE colors (
+    color_id INT PRIMARY KEY,
+    color_name VARCHAR(255)
+);
+
+CREATE TABLE sizes (
+    size_id INT PRIMARY KEY,
+    size_name VARCHAR(255)
+);
+
+INSERT INTO colors (color_id, color_name) VALUES
+    (1, 'Merah'),
+    (2, 'Biru'),
+    (3, 'Hijau');
+
+INSERT INTO sizes (size_id, size_name) VALUES
+    (1, 'S'),
+    (2, 'M'),
+    (3, 'L');
+```
+
+Data yang kita punya:
+
+**Tabel `colors`:**
+
+```
++----------+------------+
+| color_id | color_name |
++----------+------------+
+| 1        | Merah      |
+| 2        | Biru       |
+| 3        | Hijau      |
++----------+------------+
+```
+
+**Tabel `sizes`:**
+
+```
++---------+-----------+
+| size_id | size_name |
++---------+-----------+
+| 1       | S         |
+| 2       | M         |
+| 3       | L         |
++---------+-----------+
+```
+
+## CROSS JOIN
+
+`CROSS JOIN` menggabungkan setiap baris dari tabel pertama dengan setiap baris dari tabel kedua, tanpa kondisi apapun. Ini menghasilkan semua kemungkinan kombinasi.
+
+### Syntax
+
+```sql
+SELECT *
+FROM tabel1
+    CROSS JOIN tabel2;
+```
+
+Atau bisa juga ditulis dengan koma (tapi kurang eksplisit):
+
+```sql
+SELECT *
+FROM tabel1, tabel2;
+```
+
+### Contoh: CROSS JOIN colors dan sizes
+
+```sql
+SELECT *
+FROM colors
+    CROSS JOIN sizes
+ORDER BY colors.color_id, sizes.size_id;
+```
+
+Hasilnya:
+
+```
++----------+------------+---------+-----------+
+| color_id | color_name | size_id | size_name |
++----------+------------+---------+-----------+
+| 1        | Merah      | 1       | S         |
+| 1        | Merah      | 2       | M         |
+| 1        | Merah      | 3       | L         |
+| 2        | Biru       | 1       | S         |
+| 2        | Biru       | 2       | M         |
+| 2        | Biru       | 3       | L         |
+| 3        | Hijau      | 1       | S         |
+| 3        | Hijau      | 2       | M         |
+| 3        | Hijau      | 3       | L         |
++----------+------------+---------+-----------+
+```
+
+Total: 3 warna × 3 ukuran = **9 kombinasi**.
+
+Setiap warna dikombinasikan dengan setiap ukuran!
+
+### Contoh dengan Alias
+
+Kita bisa menggunakan alias untuk mempersingkat penulisan:
+
+```sql
+SELECT
+    c.color_name,
+    s.size_name
+FROM colors c
+    CROSS JOIN sizes s
+ORDER BY c.color_id, s.size_id;
+```
+
+Hasilnya sama, tapi hanya menampilkan kolom yang kita butuhkan:
+
+```
++------------+-----------+
+| color_name | size_name |
++------------+-----------+
+| Merah      | S         |
+| Merah      | M         |
+| Merah      | L         |
+| Biru       | S         |
+| Biru       | M         |
+| Biru       | L         |
+| Hijau      | S         |
+| Hijau      | M         |
+| Hijau      | L         |
++------------+-----------+
+```
+
+## Kapan Menggunakan CROSS JOIN?
+
+`CROSS JOIN` berguna ketika kita perlu membuat **semua kemungkinan kombinasi** dari dua set data. Contoh use case:
+
+1. **Membuat kombinasi produk**: Semua warna × semua ukuran (seperti contoh di atas)
+2. **Membuat kalender**: Semua hari × semua jam
+3. **Membuat matriks data**: Semua siswa × semua mata pelajaran (seperti di soal LeetCode 12)
+4. **Testing**: Membuat semua kombinasi test case
+
+## CROSS JOIN dengan WHERE
+
+Meskipun `CROSS JOIN` tidak punya kondisi `ON`, kita tetap bisa menggunakan `WHERE` untuk memfilter hasil:
+
+```sql
+SELECT
+    c.color_name,
+    s.size_name
+FROM colors c
+    CROSS JOIN sizes s
+WHERE c.color_id = 1  -- Hanya warna Merah
+ORDER BY s.size_id;
+```
+
+Hasilnya:
+
+```
++------------+-----------+
+| color_name | size_name |
++------------+-----------+
+| Merah      | S         |
+| Merah      | M         |
+| Merah      | L         |
++------------+-----------+
+```
+
+## Perbedaan dengan JOIN Lainnya
+
+| Jenis JOIN   | Kondisi               | Hasil                               |
+| ------------ | --------------------- | ----------------------------------- |
+| `INNER JOIN` | Ada kondisi `ON`      | Hanya baris yang cocok              |
+| `LEFT JOIN`  | Ada kondisi `ON`      | Semua dari kiri + yang cocok        |
+| `RIGHT JOIN` | Ada kondisi `ON`      | Semua dari kanan + yang cocok       |
+| `FULL JOIN`  | Ada kondisi `ON`      | Semua dari kedua tabel              |
+| `CROSS JOIN` | **Tidak ada kondisi** | Semua kombinasi (Cartesian product) |
+
+## Tips Praktis
+
+1. **Hati-hati dengan ukuran data**: `CROSS JOIN` bisa menghasilkan banyak baris. Jika tabel pertama punya 1000 baris dan tabel kedua punya 1000 baris, hasilnya akan 1.000.000 baris!
+
+2. **Gunakan dengan bijak**: `CROSS JOIN` biasanya digunakan bersama `LEFT JOIN` untuk membuat kombinasi lengkap, seperti di soal LeetCode 12 (Students × Subjects).
+
+3. **Alias wajib**: Karena `CROSS JOIN` menggabungkan semua kolom dari kedua tabel, pastikan menggunakan alias untuk menghindari ambiguitas.
+
+4. **ORDER BY**: Karena hasilnya bisa banyak, selalu gunakan `ORDER BY` untuk memudahkan membaca hasil.
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data utama.
+- `CROSS JOIN`: Membuat kombinasi Cartesian product dari dua tabel.
+- `ORDER BY`: Mengurutkan hasil query berdasarkan kolom tertentu.
+- `AS` / Alias: Memberi nama singkat untuk tabel (contoh: `c` untuk `colors`, `s` untuk `sizes`).
+- `WHERE`: Memfilter baris berdasarkan kondisi tertentu.
