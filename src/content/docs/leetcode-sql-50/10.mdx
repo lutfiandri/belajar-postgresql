@@ -181,7 +181,7 @@ Mari kita breakdown query-nya step by step:
 4. `ROUND(...::numeric, 3)`: Bulatkan hasil ke 3 desimal. Di PostgreSQL, `ROUND()` memerlukan tipe data `NUMERIC`, bukan `FLOAT`. Karena hasil dari `AVG()` adalah `FLOAT`, maka perlu casting ke `NUMERIC` terlebih dahulu menggunakan `::numeric`.
 
    > Jika kamu masih bingung casting tipe data, baca materi ini yaa!
-   > [Casting Tipe Data](../../basic/06-casting-types)
+   > [Casting Tipe Data](../../basic/01-05-casting-types)
 
 5. `GROUP BY a1.machine_id`: Kelompokkan hasil berdasarkan `machine_id` agar `AVG()` menghitung rata-rata per mesin.
 
@@ -213,4 +213,4 @@ Hasil akhir sesuai dengan output contoh.
 - `AS`: Memberi alias untuk kolom hasil query.
 - Operasi aritmatika pada kolom: Bisa melakukan pengurangan, penjumlahan, dll pada kolom numerik.
 - [Memahami 4 Jenis JOIN](../../basic/02-01-4-joins)
-- [Casting Tipe Data](../../basic/06-casting-types)
+- [Casting Tipe Data](../../basic/01-05-casting-types)
