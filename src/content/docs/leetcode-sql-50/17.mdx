@@ -1,0 +1,208 @@
+---
+title: Project Employees I
+description: Project Employees I
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Basic Aggregate Functions" variant="note" />
+
+Hitung rata-rata pengalaman kerja karyawan untuk setiap project menggunakan `LEFT JOIN`, `AVG()`, dan `GROUP BY`.
+
+https://leetcode.com/problems/project-employees-i
+
+## Soal
+
+> Table: `Project`
+>
+> ```
+> +-------------+---------+
+> | Column Name | Type    |
+> +-------------+---------+
+> | project_id  | int     |
+> | employee_id | int     |
+> +-------------+---------+
+> ```
+>
+> (`project_id`, `employee_id`) is the primary key of this table.
+>
+> `employee_id` is a foreign key to Employee table.
+>
+> Each row of this table indicates that the employee with `employee_id` is working on the project with `project_id`.
+>
+> Table: `Employee`
+>
+> ```
+> +------------------+---------+
+> | Column Name      | Type    |
+> +------------------+---------+
+> | employee_id      | int     |
+> | name             | varchar |
+> | experience_years | int     |
+> +------------------+---------+
+> ```
+>
+> `employee_id` is the primary key of this table. It's guaranteed that `experience_years` is not NULL.
+>
+> Each row of this table contains information about one employee.
+
+Write an SQL query that reports the average experience years of all the employees for each project, rounded to 2 digits.
+
+Return the result table in **any order**.
+
+The query result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Project` table:
+>
+> ```
+> +-------------+-------------+
+> | project_id  | employee_id |
+> +-------------+-------------+
+> | 1           | 1           |
+> | 1           | 2           |
+> | 1           | 3           |
+> | 2           | 1           |
+> | 2           | 4           |
+> +-------------+-------------+
+> ```
+>
+> `Employee` table:
+>
+> ```
+> +-------------+--------+------------------+
+> | employee_id | name   | experience_years |
+> +-------------+--------+------------------+
+> | 1           | Khaled | 3                |
+> | 2           | Ali    | 2                |
+> | 3           | John   | 1                |
+> | 4           | Doe    | 2                |
+> +-------------+--------+------------------+
+> ```
+>
+> Output:
+>
+> ```
+> +-------------+---------------+
+> | project_id  | average_years |
+> +-------------+---------------+
+> | 1           | 2.00          |
+> | 2           | 2.50          |
+> +-------------+---------------+
+> ```
+>
+> **Explanation:**
+>
+> The average experience years for the first project is (3 + 2 + 1) / 3 = 2.00 and for the second project is (3 + 2) / 2 = 2.50
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Project (
+    project_id INT,
+    employee_id INT,
+    PRIMARY KEY (project_id, employee_id)
+);
+
+CREATE TABLE Employee (
+    employee_id INT PRIMARY KEY,
+    name VARCHAR(100),
+    experience_years INT NOT NULL
+);
+
+INSERT INTO Project (project_id, employee_id) VALUES
+    (1, 1),
+    (1, 2),
+    (1, 3),
+    (2, 1),
+    (2, 4);
+
+INSERT INTO Employee (employee_id, name, experience_years) VALUES
+    (1, 'Khaled', 3),
+    (2, 'Ali', 2),
+    (3, 'John', 1),
+    (4, 'Doe', 2);
+```
+
+## Jawaban SQL
+
+```sql
+SELECT
+    p.project_id,
+    ROUND(AVG(e.experience_years)::NUMERIC, 2) AS average_years
+FROM Project p
+    LEFT JOIN Employee e ON p.employee_id = e.employee_id
+GROUP BY p.project_id;
+```
+
+## Penjelasan
+
+Soal ini meminta kita menghitung rata-rata pengalaman kerja (experience years) karyawan untuk setiap project. Karena data karyawan ada di tabel `Employee` dan data project ada di tabel `Project`, kita perlu menggabungkan keduanya.
+
+Mari kita breakdown query-nya step by step:
+
+1. **LEFT JOIN**: `FROM Project p LEFT JOIN Employee e ON p.employee_id = e.employee_id` menggabungkan tabel `Project` dengan `Employee`.
+
+   - `p` mewakili tabel `Project`
+   - `e` mewakili tabel `Employee`
+   - Kondisi join: `p.employee_id = e.employee_id` - mencocokkan berdasarkan `employee_id`
+   - Pakai `LEFT JOIN` untuk mempertahankan semua project dari tabel kiri, meskipun tidak ada karyawan yang cocok
+
+   Setelah LEFT JOIN, hasilnya seperti ini:
+
+   ```
+   +------------+-------------+-------------+--------+------------------+
+   | project_id | employee_id | employee_id | name   | experience_years |
+   +------------+-------------+-------------+--------+------------------+
+   | 1          | 1           | 1           | Khaled | 3                |
+   | 1          | 2           | 2           | Ali    | 2                |
+   | 1          | 3           | 3           | John   | 1                |
+   | 2          | 1           | 1           | Khaled | 3                |
+   | 2          | 4           | 4           | Doe    | 2                |
+   +------------+-------------+-------------+--------+------------------+
+   ```
+
+   Perhatikan bahwa:
+
+   - Project 1 punya 3 karyawan: Khaled (3 tahun), Ali (2 tahun), John (1 tahun)
+   - Project 2 punya 2 karyawan: Khaled (3 tahun), Doe (2 tahun)
+
+2. **GROUP BY**: `GROUP BY p.project_id` mengelompokkan baris berdasarkan project.
+
+3. **AVG()**: `AVG(e.experience_years)` menghitung rata-rata `experience_years` untuk setiap project.
+
+   - Project 1: `AVG(3, 2, 1) = (3 + 2 + 1) / 3 = 6 / 3 = 2.00`
+   - Project 2: `AVG(3, 2) = (3 + 2) / 2 = 5 / 2 = 2.50`
+
+4. **Cast ke NUMERIC**: `AVG(e.experience_years)::NUMERIC` mengubah hasil ke tipe `NUMERIC` agar bisa dibulatkan dengan presisi yang tepat.
+
+   - Tanpa cast, hasil bisa berupa `FLOAT`. Sementara itu, `ROUND()` membutuhkan tipe data `NUMERIC`.
+
+5. **ROUND()**: `ROUND(..., 2)` membulatkan hasil ke 2 desimal.
+
+   - Project 1: `2.00`
+   - Project 2: `2.50`
+
+> Kalau kamu masih bingung dengan `JOIN` dan kenapa menggunakan `LEFT JOIN`, coba baca dulu materi ini yaa!
+> [Memahami 4 Jenis JOIN](../../basic/02-01-4-joins)
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data utama.
+- `LEFT JOIN`: Menggabungkan dua tabel dengan mempertahankan semua baris dari tabel kiri.
+- `ON`: Menentukan kondisi untuk menggabungkan baris dari kedua tabel.
+- `GROUP BY`: Mengelompokkan baris berdasarkan nilai kolom tertentu.
+- `AVG()`: Menghitung rata-rata nilai dalam setiap grup.
+- `ROUND(value, decimal_places)`: Membulatkan nilai ke jumlah desimal tertentu.
+- `::NUMERIC`: Cast value ke tipe data `NUMERIC` untuk presisi lebih tinggi.
+- `AS`: Memberi alias untuk kolom hasil query.
+- Foreign Key: Kolom yang merujuk ke primary key di tabel lain, memastikan integritas data.
+- [Memahami 4 Jenis JOIN](../../basic/02-01-4-joins)
+- [Tipe Data Angka](../../basic/01-01-number-types)
