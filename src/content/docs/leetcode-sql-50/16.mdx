@@ -1,0 +1,256 @@
+---
+title: Average Selling Price
+description: Average Selling Price
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Basic Aggregate Functions" variant="note" />
+
+Hitung harga jual rata-rata setiap produk berdasarkan harga pada periode tertentu menggunakan `LEFT JOIN` dengan kondisi tanggal `BETWEEN`, `SUM()`, `COALESCE()`, dan `NULLIF()`.
+
+https://leetcode.com/problems/average-selling-price
+
+## Soal
+
+> Table: `Prices`
+>
+> ```
+> +---------------+---------+
+> | Column Name   | Type    |
+> +---------------+---------+
+> | product_id    | int     |
+> | start_date    | date    |
+> | end_date      | date    |
+> | price         | int     |
+> +---------------+---------+
+> ```
+>
+> (`product_id`, `start_date`, `end_date`) is the primary key (combination of columns with unique values) for this table.
+>
+> Each row of this table indicates the price of the `product_id` in the period from `start_date` to `end_date`.
+>
+> For each `product_id` there will be no two overlapping periods. That means there will be no two intersecting periods for the same `product_id`.
+>
+> Table: `UnitsSold`
+>
+> ```
+> +---------------+---------+
+> | Column Name   | Type    |
+> +---------------+---------+
+> | product_id    | int     |
+> | purchase_date | date    |
+> | units         | int     |
+> +---------------+---------+
+> ```
+>
+> This table may contain duplicate rows.
+>
+> Each row of this table indicates the date, units, and `product_id` of each product sold.
+
+Write a solution to find the average selling price for each product. `average_price` should be rounded to 2 decimal places. If a product does not have any sold units, its average selling price is assumed to be 0.
+
+Return the result table in **any order**.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Prices` table:
+>
+> ```
+> +------------+------------+------------+--------+
+> | product_id | start_date | end_date   | price  |
+> +------------+------------+------------+--------+
+> | 1          | 2019-02-17 | 2019-02-28 | 5      |
+> | 1          | 2019-03-01 | 2019-03-22 | 20     |
+> | 2          | 2019-02-01 | 2019-02-20 | 15     |
+> | 2          | 2019-02-21 | 2019-03-31 | 30     |
+> +------------+------------+------------+--------+
+> ```
+>
+> `UnitsSold` table:
+>
+> ```
+> +------------+---------------+-------+
+> | product_id | purchase_date | units |
+> +------------+---------------+-------+
+> | 1          | 2019-02-25    | 100   |
+> | 1          | 2019-03-01    | 15    |
+> | 2          | 2019-02-10    | 200   |
+> | 2          | 2019-03-22    | 30    |
+> +------------+---------------+-------+
+> ```
+>
+> Output:
+>
+> ```
+> +------------+---------------+
+> | product_id | average_price |
+> +------------+---------------+
+> | 1          | 6.96          |
+> | 2          | 16.96         |
+> +------------+---------------+
+> ```
+>
+> **Explanation:**
+>
+> Average selling price = Total Price of Product / Number of products sold.
+>
+> - Average selling price for product 1 = ((100 \* 5) + (15 \* 20)) / 115 = 6.96
+> - Average selling price for product 2 = ((200 \* 15) + (30 \* 30)) / 230 = 16.96
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Prices (
+    product_id INT,
+    start_date DATE,
+    end_date DATE,
+    price INT,
+    PRIMARY KEY (product_id, start_date, end_date)
+);
+
+CREATE TABLE UnitsSold (
+    product_id INT,
+    purchase_date DATE,
+    units INT
+);
+
+INSERT INTO Prices (product_id, start_date, end_date, price) VALUES
+    (1, '2019-02-17', '2019-02-28', 5),
+    (1, '2019-03-01', '2019-03-22', 20),
+    (2, '2019-02-01', '2019-02-20', 15),
+    (2, '2019-02-21', '2019-03-31', 30);
+
+INSERT INTO UnitsSold (product_id, purchase_date, units) VALUES
+    (1, '2019-02-25', 100),
+    (1, '2019-03-01', 15),
+    (2, '2019-02-10', 200),
+    (2, '2019-03-22', 30);
+```
+
+## Jawaban SQL
+
+```sql "BETWEEN" "COALESCE" "NULLIF"
+SELECT
+    p.product_id,
+    COALESCE(
+        ROUND(SUM(p.price * u.units)::NUMERIC / NULLIF(SUM(u.units), 0), 2),
+        0
+    ) AS average_price
+FROM Prices p
+    LEFT JOIN UnitsSold u
+        ON p.product_id = u.product_id
+        AND u.purchase_date BETWEEN p.start_date AND p.end_date
+GROUP BY p.product_id;
+```
+
+## Penjelasan
+
+Soal ini meminta kita menghitung harga jual rata-rata setiap produk. Harga produk bisa berubah-ubah dalam periode tertentu, jadi kita harus mencocokkan tanggal pembelian dengan periode harga yang berlaku.
+
+Rumus average selling price:
+
+```
+Average Selling Price = Total Revenue / Total Units Sold
+                      = SUM(price * units) / SUM(units)
+```
+
+Mari kita breakdown query-nya step by step:
+
+1. **LEFT JOIN dengan kondisi BETWEEN**:
+
+   ```sql
+   FROM Prices p
+       LEFT JOIN UnitsSold u
+           ON p.product_id = u.product_id
+           AND u.purchase_date BETWEEN p.start_date AND p.end_date
+   ```
+
+   - Menggabungkan tabel `Prices` dengan `UnitsSold`
+   - Kondisi join: `product_id` cocok **DAN** `purchase_date` berada dalam range `start_date` sampai `end_date`
+   - Pakai `LEFT JOIN` agar produk yang tidak punya penjualan tetap muncul (dengan `u.*` = `NULL`)
+
+   Setelah LEFT JOIN, hasilnya seperti ini:
+
+   ```
+   +------------+------------+------------+-------+------------+---------------+-------+
+   | product_id | start_date | end_date   | price | product_id | purchase_date | units |
+   +------------+------------+------------+-------+------------+---------------+-------+
+   | 1          | 2019-02-17 | 2019-02-28 | 5     | 1          | 2019-02-25    | 100   |
+   | 1          | 2019-03-01 | 2019-03-22 | 20    | 1          | 2019-03-01    | 15    |
+   | 2          | 2019-02-01 | 2019-02-20 | 15    | 2          | 2019-02-10    | 200   |
+   | 2          | 2019-02-21 | 2019-03-31 | 30    | 2          | 2019-03-22    | 30    |
+   +------------+------------+------------+-------+------------+---------------+-------+
+   ```
+
+   Perhatikan bahwa:
+
+   - Product 1 pada 2019-02-25 dijual 100 unit dengan harga 5 (periode 2019-02-17 s/d 2019-02-28)
+   - Product 1 pada 2019-03-01 dijual 15 unit dengan harga 20 (periode 2019-03-01 s/d 2019-03-22)
+   - Product 2 pada 2019-02-10 dijual 200 unit dengan harga 15 (periode 2019-02-01 s/d 2019-02-20)
+   - Product 2 pada 2019-03-22 dijual 30 unit dengan harga 30 (periode 2019-02-21 s/d 2019-03-31)
+
+2. **GROUP BY**: `GROUP BY p.product_id` mengelompokkan baris berdasarkan produk.
+
+3. **Hitung Total Revenue**: `SUM(p.price * u.units)` menghitung total pendapatan dari semua penjualan.
+
+   - Product 1: `(5 * 100) + (20 * 15) = 500 + 300 = 800`
+   - Product 2: `(15 * 200) + (30 * 30) = 3000 + 900 = 3900`
+
+4. **Hitung Total Units**: `SUM(u.units)` menghitung total unit terjual.
+
+   - Product 1: `100 + 15 = 115`
+   - Product 2: `200 + 30 = 230`
+
+5. **Pembagian dengan NULLIF**: `SUM(p.price * u.units)::NUMERIC / NULLIF(SUM(u.units), 0)`
+
+   - `::NUMERIC` mengubah hasil menjadi tipe `NUMERIC` agar pembagian lebih presisi (tidak bulat)
+   - `NULLIF(SUM(u.units), 0)` mengubah `0` menjadi `NULL` untuk mencegah division by zero
+   - Jika produk tidak punya penjualan, `SUM(u.units)` = `0` atau `NULL`, maka `NULLIF` akan menghasilkan `NULL`
+   - Pembagian dengan `NULL` menghasilkan `NULL`
+
+   Hasil perhitungan:
+
+   - Product 1: `800 / 115 = 6.956521...`
+   - Product 2: `3900 / 230 = 16.956521...`
+
+6. **ROUND()**: `ROUND(..., 2)` membulatkan hasil ke 2 desimal.
+
+   - Product 1: `6.96`
+   - Product 2: `16.96`
+
+7. **COALESCE()**: `COALESCE(..., 0)` mengganti `NULL` dengan `0`.
+
+   - Jika produk tidak punya penjualan, hasil perhitungan akan `NULL`, maka `COALESCE` akan mengubahnya menjadi `0`
+   - Untuk produk yang ada penjualan, hasil tetap sesuai perhitungan
+
+> **Mengapa perlu `NULLIF()`?**
+>
+> Tanpa `NULLIF()`, jika `SUM(u.units)` = `0`, kita akan mendapat error "division by zero". Dengan `NULLIF(SUM(u.units), 0)`, nilai `0` diubah menjadi `NULL`, sehingga pembagian menghasilkan `NULL` (bukan error), lalu `COALESCE()` mengubahnya menjadi `0`.
+
+> Kalau kamu masih bingung dengan `JOIN` dan kenapa menggunakan `LEFT JOIN`, coba baca dulu materi ini yaa!
+> [Memahami 4 Jenis JOIN](../../basic/02-01-4-joins)
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data utama.
+- `LEFT JOIN`: Menggabungkan dua tabel dengan mempertahankan semua baris dari tabel kiri.
+- `ON`: Menentukan kondisi untuk menggabungkan baris dari kedua tabel.
+- `BETWEEN`: Operator untuk memeriksa apakah nilai berada dalam range tertentu (inklusif).
+- `GROUP BY`: Mengelompokkan baris berdasarkan nilai kolom tertentu.
+- `SUM()`: Menghitung total nilai dalam setiap grup.
+- `ROUND(value, decimal_places)`: Membulatkan nilai ke jumlah desimal tertentu.
+- `COALESCE(value1, value2, ...)`: Mengembalikan nilai pertama yang tidak `NULL`.
+- `NULLIF(value1, value2)`: Mengembalikan `NULL` jika `value1` = `value2`, jika tidak mengembalikan `value1`.
+- `::NUMERIC`: Cast value ke tipe data `NUMERIC` untuk presisi lebih tinggi.
+- `AS`: Memberi alias untuk kolom hasil query.
+- [Memahami 4 Jenis JOIN](../../basic/02-01-4-joins)
+- [Tipe Data Angka](../../basic/01-01-number-types)
