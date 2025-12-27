@@ -1,0 +1,206 @@
+---
+title: Number of Unique Subjects Taught by Each Teacher
+description: Number of Unique Subjects Taught by Each Teacher
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Sorting and Grouping" variant="note" />
+
+Hitung jumlah unique subject yang diajarkan setiap teacher menggunakan `COUNT(DISTINCT)` dan `GROUP BY`.
+
+https://leetcode.com/problems/number-of-unique-subjects-taught-by-each-teacher
+
+## Soal
+
+> Table: `Teacher`
+>
+> ```
+> +-------------+------+
+> | Column Name | Type |
+> +-------------+------+
+> | teacher_id  | int  |
+> | subject_id  | int  |
+> | dept_id     | int  |
+> +-------------+------+
+> ```
+>
+> (`subject_id`, `dept_id`) is the primary key (combinations of columns with unique values) of this table.
+>
+> Each row in this table indicates that the teacher with `teacher_id` teaches the subject `subject_id` in the department `dept_id`.
+
+Write a solution to calculate the number of unique subjects each teacher teaches in the university.
+
+Return the result table in any order.
+
+The result format is shown in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Teacher` table:
+>
+> ```
+> +------------+------------+---------+
+> | teacher_id | subject_id | dept_id |
+> +------------+------------+---------+
+> | 1          | 2          | 3       |
+> | 1          | 2          | 4       |
+> | 1          | 3          | 3       |
+> | 2          | 1          | 1       |
+> | 2          | 2          | 1       |
+> | 2          | 3          | 1       |
+> | 2          | 4          | 1       |
+> +------------+------------+---------+
+> ```
+>
+> Output:
+>
+> ```
+> +------------+-----+
+> | teacher_id | cnt |
+> +------------+-----+
+> | 1          | 2   |
+> | 2          | 4   |
+> +------------+-----+
+> ```
+>
+> **Explanation:**
+>
+> - Teacher 1:
+>   - They teach subject 2 in departments 3 and 4.
+>   - They teach subject 3 in department 3.
+> - Teacher 2:
+>   - They teach subject 1 in department 1.
+>   - They teach subject 2 in department 1.
+>   - They teach subject 3 in department 1.
+>   - They teach subject 4 in department 1.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Teacher (
+    teacher_id INT,
+    subject_id INT,
+    dept_id INT,
+    PRIMARY KEY (subject_id, dept_id)
+);
+
+INSERT INTO Teacher (teacher_id, subject_id, dept_id) VALUES
+    (1, 2, 3),
+    (1, 2, 4),
+    (1, 3, 3),
+    (2, 1, 1),
+    (2, 2, 1),
+    (2, 3, 1),
+    (2, 4, 1);
+```
+
+## Jawaban SQL
+
+```sql "COUNT(DISTINCT subject_id)"
+SELECT
+    teacher_id,
+    COUNT(DISTINCT subject_id) AS cnt
+FROM Teacher
+GROUP BY teacher_id;
+```
+
+## Penjelasan
+
+Soal ini meminta kita menghitung jumlah **unique subject** yang diajarkan oleh setiap teacher.
+
+Perhatikan bahwa seorang teacher bisa mengajar subject yang sama di department yang berbeda. Misalnya Teacher 1 mengajar subject 2 di department 3 dan 4. Kita hanya perlu menghitung subject 2 **sekali saja**, bukan dua kali.
+
+Mari kita breakdown query-nya step by step:
+
+1. **FROM Teacher**: Ambil data dari tabel `Teacher`.
+
+   Isi tabel `Teacher`:
+
+   ```
+   +------------+------------+---------+
+   | teacher_id | subject_id | dept_id |
+   +------------+------------+---------+
+   | 1          | 2          | 3       |
+   | 1          | 2          | 4       | ← Subject 2 lagi (tapi beda dept)
+   | 1          | 3          | 3       |
+   | 2          | 1          | 1       |
+   | 2          | 2          | 1       |
+   | 2          | 3          | 1       |
+   | 2          | 4          | 1       |
+   +------------+------------+---------+
+   ```
+
+2. **GROUP BY teacher_id**: Kelompokkan data berdasarkan `teacher_id`.
+
+   Setelah dikelompokkan:
+   - Teacher 1: [subject 2 (dept 3), subject 2 (dept 4), subject 3 (dept 3)]
+   - Teacher 2: [subject 1, subject 2, subject 3, subject 4]
+
+3. **COUNT(DISTINCT subject_id)**: Menghitung jumlah **unique** subject untuk setiap teacher.
+
+   `DISTINCT` adalah kata kunci yang digunakan untuk menghilangkan duplikat. Jadi `COUNT(DISTINCT column)` akan menghitung jumlah nilai unik di kolom tersebut.
+
+   **Teacher 1**:
+   - Subject yang diajarkan: 2, 2, 3
+   - Unique subject: 2, 3
+   - Count: **2**
+
+   **Teacher 2**:
+   - Subject yang diajarkan: 1, 2, 3, 4
+   - Unique subject: 1, 2, 3, 4
+   - Count: **4**
+
+Hasil akhir:
+
+```
++------------+-----+
+| teacher_id | cnt |
++------------+-----+
+| 1          | 2   |
+| 2          | 4   |
++------------+-----+
+```
+
+### Kenapa Tidak Pakai COUNT(\*)?
+
+Kalau kita pakai `COUNT(*)` tanpa `DISTINCT`:
+
+```sql
+SELECT
+    teacher_id,
+    COUNT(*) AS cnt  -- ❌ Salah!
+FROM Teacher
+GROUP BY teacher_id;
+```
+
+Hasilnya akan:
+
+```
++------------+-----+
+| teacher_id | cnt |
++------------+-----+
+| 1          | 3   | ← Salah! Harusnya 2
+| 2          | 4   |
++------------+-----+
+```
+
+Teacher 1 akan dihitung 3 karena ada 3 baris (termasuk subject 2 yang duplikat). Padahal kita hanya ingin menghitung unique subject, jadi harusnya 2.
+
+Oleh karena itu, kita **harus** pakai `COUNT(DISTINCT subject_id)` untuk menghitung jumlah subject yang unik.
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `GROUP BY`: Mengelompokkan baris berdasarkan nilai kolom tertentu.
+- `COUNT(*)`: Menghitung jumlah baris dalam setiap grup.
+- `COUNT(DISTINCT column)`: Menghitung jumlah nilai unik dalam kolom tertentu untuk setiap grup.
+- `DISTINCT`: Kata kunci untuk menghilangkan duplikat.
+- `AS`: Memberi alias untuk kolom hasil query.
+- Primary Key Komposit: Primary key yang terdiri dari kombinasi beberapa kolom.
