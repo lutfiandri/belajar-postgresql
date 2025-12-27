@@ -1,0 +1,272 @@
+---
+title: User Activity for the Past 30 Days I
+description: User Activity for the Past 30 Days I
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Sorting and Grouping" variant="note" />
+
+Hitung jumlah active user per hari dalam periode 30 hari menggunakan `COUNT(DISTINCT)`, `GROUP BY`, dan date filtering dengan `BETWEEN` atau `INTERVAL`.
+
+https://leetcode.com/problems/user-activity-for-the-past-30-days-i
+
+## Soal
+
+> Table: `Activity`
+>
+> ```
+> +---------------+---------+
+> | Column Name   | Type    |
+> +---------------+---------+
+> | user_id       | int     |
+> | session_id    | int     |
+> | activity_date | date    |
+> | activity_type | enum    |
+> +---------------+---------+
+> ```
+>
+> This table may have duplicate rows.
+>
+> The `activity_type` column is an ENUM (category) of type ('open_session', 'end_session', 'scroll_down', 'send_message').
+>
+> The table shows the user activities for a social media website.
+>
+> Note that each session belongs to exactly one user.
+
+Write a solution to find the daily active user count for a period of 30 days ending 2019-07-27 inclusively. A user was active on someday if they made at least one activity on that day.
+
+Return the result table in any order.
+
+> Note: Any activity from ('open_session', 'end_session', 'scroll_down', 'send_message') will be considered valid activity for a user to be considered active on a day.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Activity` table:
+>
+> ```
+> +---------+------------+---------------+---------------+
+> | user_id | session_id | activity_date | activity_type |
+> +---------+------------+---------------+---------------+
+> | 1       | 1          | 2019-07-20    | open_session  |
+> | 1       | 1          | 2019-07-20    | scroll_down   |
+> | 1       | 1          | 2019-07-20    | end_session   |
+> | 2       | 4          | 2019-07-20    | open_session  |
+> | 2       | 4          | 2019-07-21    | send_message  |
+> | 2       | 4          | 2019-07-21    | end_session   |
+> | 3       | 2          | 2019-07-21    | open_session  |
+> | 3       | 2          | 2019-07-21    | send_message  |
+> | 3       | 2          | 2019-07-21    | end_session   |
+> | 4       | 3          | 2019-06-25    | open_session  |
+> | 4       | 3          | 2019-06-25    | end_session   |
+> +---------+------------+---------------+---------------+
+> ```
+>
+> Output:
+>
+> ```
+> +------------+--------------+ 
+> | day        | active_users |
+> +------------+--------------+ 
+> | 2019-07-20 | 2            |
+> | 2019-07-21 | 2            |
+> +------------+--------------+
+> ```
+>
+> **Explanation:**
+>
+> Note that we do not care about days with zero active users.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Activity (
+    user_id INT,
+    session_id INT,
+    activity_date DATE,
+    activity_type VARCHAR(20) CHECK (activity_type IN ('open_session', 'end_session', 'scroll_down', 'send_message'))
+);
+
+INSERT INTO Activity (user_id, session_id, activity_date, activity_type) VALUES
+    (1, 1, '2019-07-20', 'open_session'),
+    (1, 1, '2019-07-20', 'scroll_down'),
+    (1, 1, '2019-07-20', 'end_session'),
+    (2, 4, '2019-07-20', 'open_session'),
+    (2, 4, '2019-07-21', 'send_message'),
+    (2, 4, '2019-07-21', 'end_session'),
+    (3, 2, '2019-07-21', 'open_session'),
+    (3, 2, '2019-07-21', 'send_message'),
+    (3, 2, '2019-07-21', 'end_session'),
+    (4, 3, '2019-06-25', 'open_session'),
+    (4, 3, '2019-06-25', 'end_session');
+```
+
+## Jawaban SQL
+
+```sql "interval '30 days'" "COUNT(DISTINCT user_id)"
+SELECT 
+    activity_date AS day,
+    COUNT(DISTINCT user_id) AS active_users
+FROM Activity
+WHERE activity_date <= '2019-07-27'
+    AND activity_date > '2019-07-27'::DATE - INTERVAL '30 days'
+GROUP BY activity_date;
+```
+
+## Penjelasan
+
+Soal ini meminta kita menghitung jumlah **active user** per hari dalam periode **30 hari yang berakhir pada 2019-07-27** (inclusively).
+
+- **Active user**: User yang melakukan minimal 1 aktivitas pada hari tersebut
+- **Periode**: 30 hari terakhir sampai dengan 2019-07-27 (termasuk 2019-07-27)
+
+Mari kita breakdown query-nya step by step:
+
+1. **FROM Activity**: Ambil data dari tabel `Activity`.
+
+   Isi tabel `Activity`:
+
+   ```
+   +---------+------------+---------------+---------------+
+   | user_id | session_id | activity_date | activity_type |
+   +---------+------------+---------------+---------------+
+   | 1       | 1          | 2019-07-20    | open_session  |
+   | 1       | 1          | 2019-07-20    | scroll_down   |
+   | 1       | 1          | 2019-07-20    | end_session   |
+   | 2       | 4          | 2019-07-20    | open_session  |
+   | 2       | 4          | 2019-07-21    | send_message  |
+   | 2       | 4          | 2019-07-21    | end_session   |
+   | 3       | 2          | 2019-07-21    | open_session  |
+   | 3       | 2          | 2019-07-21    | send_message  |
+   | 3       | 2          | 2019-07-21    | end_session   |
+   | 4       | 3          | 2019-06-25    | open_session  |
+   | 4       | 3          | 2019-06-25    | end_session   |
+   +---------+------------+---------------+---------------+
+   ```
+
+2. **WHERE clause**: Filter data untuk periode 30 hari yang berakhir di 2019-07-27.
+
+   ```sql
+   WHERE activity_date <= '2019-07-27'
+       AND activity_date > '2019-07-27'::DATE - INTERVAL '30 days'
+   ```
+
+   **Kondisi 1**: `activity_date <= '2019-07-27'`
+   - Ambil aktivitas sampai dengan tanggal 2019-07-27 (inclusive)
+
+   **Kondisi 2**: `activity_date > '2019-07-27'::DATE - INTERVAL '30 days'`
+   - `'2019-07-27'::DATE` mengubah string menjadi tipe DATE
+   - `INTERVAL '30 days'` adalah interval waktu 30 hari
+   - `'2019-07-27'::DATE - INTERVAL '30 days'` = `2019-06-27`
+   - Jadi `activity_date > '2019-06-27'` berarti mulai dari `2019-06-28`
+
+   Periode yang valid: **2019-06-28 sampai 2019-07-27** (30 hari)
+
+   Setelah di-filter:
+
+   ```
+   +---------+---------------+
+   | user_id | activity_date |
+   +---------+---------------+
+   | 1       | 2019-07-20    | ✓
+   | 1       | 2019-07-20    | ✓
+   | 1       | 2019-07-20    | ✓
+   | 2       | 2019-07-20    | ✓
+   | 2       | 2019-07-21    | ✓
+   | 2       | 2019-07-21    | ✓
+   | 3       | 2019-07-21    | ✓
+   | 3       | 2019-07-21    | ✓
+   | 3       | 2019-07-21    | ✓
+   | 4       | 2019-06-25    | ✗ (Di luar periode)
+   | 4       | 2019-06-25    | ✗ (Di luar periode)
+   +---------+---------------+
+   ```
+
+3. **GROUP BY activity_date**: Kelompokkan data berdasarkan tanggal.
+
+   Setelah dikelompokkan:
+   - 2019-07-20: User [1, 1, 1, 2]
+   - 2019-07-21: User [2, 2, 3, 3, 3]
+
+4. **COUNT(DISTINCT user_id)**: Menghitung jumlah **unique user** per tanggal.
+
+   Kenapa pakai `DISTINCT`? Karena satu user bisa punya banyak aktivitas di hari yang sama (seperti User 1 punya 3 aktivitas di 2019-07-20). Kita hanya ingin menghitung user tersebut **sekali**.
+
+   - 2019-07-20: Unique users = [1, 2] → Count: **2**
+   - 2019-07-21: Unique users = [2, 3] → Count: **2**
+
+Hasil akhir:
+
+```
++------------+--------------+ 
+| day        | active_users |
++------------+--------------+ 
+| 2019-07-20 | 2            |
+| 2019-07-21 | 2            |
++------------+--------------+
+```
+
+### Alternatif: Menggunakan BETWEEN
+
+Kita juga bisa menggunakan `BETWEEN` untuk filter tanggal:
+
+```sql "BETWEEN"
+SELECT 
+    activity_date AS day,
+    COUNT(DISTINCT user_id) AS active_users
+FROM Activity
+WHERE activity_date 
+    BETWEEN '2019-07-27'::DATE - INTERVAL '29 days' AND '2019-07-27'
+GROUP BY activity_date;
+```
+
+**Cara Kerja BETWEEN**:
+
+`BETWEEN` adalah shortcut untuk kondisi range yang **inclusive** (termasuk batas awal dan akhir).
+
+```sql
+activity_date BETWEEN '2019-06-28' AND '2019-07-27'
+```
+
+Sama dengan:
+
+```sql
+activity_date >= '2019-06-28' AND activity_date <= '2019-07-27'
+```
+
+Karena `BETWEEN` inclusive di kedua sisi, kita bisa pakai `INTERVAL '29 days'` untuk mendapatkan periode 30 hari:
+
+- Tanggal akhir: `2019-07-27`
+- Tanggal awal: `2019-07-27 - 29 hari = 2019-06-28`
+- Total: 30 hari (termasuk tanggal awal dan akhir)
+
+**Keuntungan BETWEEN**:
+- Lebih mudah dibaca
+- Lebih ringkas
+- Bisa dikombinasikan dengan `INTERVAL` untuk perhitungan dinamis
+
+**Kapan Pakai BETWEEN vs Comparison Operators**:
+- Pakai `BETWEEN` jika ingin filter range yang inclusive di kedua sisi
+- Pakai `>` dan `<=` jika ingin kontrol lebih detail (misalnya exclusive di salah satu sisi)
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `WHERE`: Memfilter baris berdasarkan kondisi.
+- `GROUP BY`: Mengelompokkan baris berdasarkan nilai kolom tertentu.
+- `COUNT(DISTINCT column)`: Menghitung jumlah nilai unik dalam kolom tertentu untuk setiap grup.
+- `BETWEEN`: Operator untuk filter range yang inclusive (termasuk batas awal dan akhir).
+- `INTERVAL`: Tipe data untuk merepresentasikan interval waktu (hari, jam, menit, dll).
+- `::DATE`: Cast value ke tipe data DATE.
+- `AS`: Memberi alias untuk kolom hasil query.
+- Date Arithmetic: Operasi matematika pada tanggal (penambahan/pengurangan).
+- ENUM Type: Tipe data yang hanya bisa menerima nilai tertentu.
+- [Tipe Data Tanggal dan Waktu](../../basic/01-03-date-time-types)
