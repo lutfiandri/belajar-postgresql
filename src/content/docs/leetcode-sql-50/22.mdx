@@ -1,0 +1,289 @@
+---
+title: Game Play Analysis IV
+description: Game Play Analysis IV
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Medium" variant="note" />
+<Badge text="Basic Aggregate Functions" variant="note" />
+
+Hitung fraksi player yang login kembali di hari kedua setelah first login menggunakan CTE, `DISTINCT ON`, `LEFT JOIN`, dan date arithmetic.
+
+https://leetcode.com/problems/game-play-analysis-iv
+
+## Soal
+
+> Table: `Activity`
+>
+> ```
+> +--------------+---------+
+> | Column Name  | Type    |
+> +--------------+---------+
+> | player_id    | int     |
+> | device_id    | int     |
+> | event_date   | date    |
+> | games_played | int     |
+> +--------------+---------+
+> ```
+>
+> (`player_id`, `event_date`) is the primary key (combination of columns with unique values) of this table.
+>
+> This table shows the activity of players of some games.
+>
+> Each row is a record of a player who logged in and played a number of games (possibly 0) before logging out on someday using some device.
+
+Write a solution to report the **fraction** of players that logged in again on the day after the day they first logged in, rounded to 2 decimal places. In other words, you need to count the number of players that logged in for at least two consecutive days starting from their first login date, then divide that number by the total number of players.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Activity` table:
+>
+> ```
+> +-----------+-----------+------------+--------------+
+> | player_id | device_id | event_date | games_played |
+> +-----------+-----------+------------+--------------+
+> | 1         | 2         | 2016-03-01 | 5            |
+> | 1         | 2         | 2016-03-02 | 6            |
+> | 2         | 3         | 2017-06-25 | 1            |
+> | 3         | 1         | 2016-03-02 | 0            |
+> | 3         | 4         | 2018-07-03 | 5            |
+> +-----------+-----------+------------+--------------+
+> ```
+>
+> Output:
+>
+> ```
+> +-----------+
+> | fraction  |
+> +-----------+
+> | 0.33      |
+> +-----------+
+> ```
+>
+> **Explanation:**
+>
+> - Only the player with id 1 logged back in after the first day he had logged in so the answer is 1/3 = 0.33
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Activity (
+    player_id INT,
+    device_id INT,
+    event_date DATE,
+    games_played INT,
+    PRIMARY KEY (player_id, event_date)
+);
+
+INSERT INTO Activity (player_id, device_id, event_date, games_played) VALUES
+    (1, 2, '2016-03-01', 5),
+    (1, 2, '2016-03-02', 6),
+    (2, 3, '2017-06-25', 1),
+    (3, 1, '2016-03-02', 0),
+    (3, 4, '2018-07-03', 5);
+```
+
+## Jawaban SQL
+
+```sql "WITH first_logins AS" "WITH consecutive_check AS" "f.first_day + 1" "(a.event_date IS NOT NULL)::int"
+WITH first_logins AS (
+    SELECT DISTINCT ON (player_id)
+        player_id,
+        event_date AS first_day
+    FROM Activity
+    ORDER BY player_id, event_date
+),
+consecutive_check AS (
+    SELECT 
+        f.player_id,
+        (a.event_date IS NOT NULL)::INT AS stayed_day_2
+    FROM first_logins f
+    LEFT JOIN Activity a 
+        ON f.player_id = a.player_id 
+        AND a.event_date = f.first_day + 1
+)
+SELECT 
+    ROUND(SUM(stayed_day_2)::NUMERIC / COUNT(*), 2) AS fraction
+FROM consecutive_check;
+```
+
+## Penjelasan
+
+Soal ini meminta kita menghitung **fraksi** (atau persentase dalam bentuk desimal) player yang login kembali **pada hari kedua** setelah first login mereka.
+
+Untuk menyelesaikan soal ini, kita perlu:
+1. Ambil first login date setiap player
+2. Cek apakah player tersebut login kembali di hari berikutnya (first_day + 1)
+3. Hitung fraksi player yang login di hari kedua
+
+Query ini menggunakan **2 CTE** untuk memecah masalah menjadi langkah-langkah yang lebih mudah dipahami.
+
+:::note[Multiple CTE]
+Kita bisa membuat lebih dari 1 CTE dalam 1 query! Caranya dengan memisahkan setiap CTE menggunakan **koma**.
+
+Syntax-nya seperti ini:
+
+```sql
+WITH cte1 AS (
+    -- query untuk CTE pertama
+),
+cte2 AS (
+    -- query untuk CTE kedua (bisa menggunakan cte1)
+),
+cte3 AS (
+    -- query untuk CTE ketiga (bisa menggunakan cte1 dan cte2)
+)
+SELECT ... FROM cte3;
+```
+
+CTE yang dibuat sebelumnya bisa digunakan oleh CTE berikutnya, sehingga kita bisa membangun query kompleks secara bertahap.
+:::
+
+Mari kita breakdown query-nya step by step:
+
+### Langkah 1: Ambil First Login Date Setiap Player (CTE 1)
+
+```sql
+WITH first_logins AS (
+    SELECT DISTINCT ON (player_id)
+        player_id,
+        event_date AS first_day
+    FROM Activity
+    ORDER BY player_id, event_date
+)
+```
+
+Sama seperti soal sebelumnya, kita gunakan `DISTINCT ON` untuk mengambil first login setiap player.
+
+Hasil CTE `first_logins`:
+
+```
++-----------+------------+
+| player_id | first_day  |
++-----------+------------+
+| 1         | 2016-03-01 |
+| 2         | 2017-06-25 |
+| 3         | 2016-03-02 |
++-----------+------------+
+```
+
+### Langkah 2: Cek Login di Hari Kedua (CTE 2)
+
+```sql
+consecutive_check AS (
+    SELECT 
+        f.player_id,
+        (a.event_date IS NOT NULL)::INT AS stayed_day_2
+    FROM first_logins f
+    LEFT JOIN Activity a 
+        ON f.player_id = a.player_id 
+        AND a.event_date = f.first_day + 1
+)
+```
+
+**LEFT JOIN dengan Kondisi Tanggal**: Kita join tabel `first_logins` dengan `Activity` untuk cek apakah ada login di hari kedua.
+
+- `ON f.player_id = a.player_id`: Match player yang sama
+- `AND a.event_date = f.first_day + 1`: Cek login di hari berikutnya
+
+**Date Arithmetic**: `f.first_day + 1` menambahkan 1 hari ke tanggal first login.
+
+- Player 1: `2016-03-01 + 1 = 2016-03-02`
+- Player 2: `2017-06-25 + 1 = 2017-06-26`
+- Player 3: `2016-03-02 + 1 = 2016-03-03`
+
+**LEFT JOIN Result**:
+
+```
++-----------+------------+------------+
+| player_id | first_day  | event_date | (dari Activity)
++-----------+------------+------------+
+| 1         | 2016-03-01 | 2016-03-02 | ← Ada login hari ke-2 ✓
+| 2         | 2017-06-25 | NULL       | ← Tidak ada login hari ke-2 ✗
+| 3         | 2016-03-02 | NULL       | ← Tidak ada login hari ke-2 ✗
++-----------+------------+------------+
+```
+
+**Cast IS NOT NULL ke Integer**: `(a.event_date IS NOT NULL)::INT`
+
+- Jika `a.event_date` ada (not NULL), berarti player login di hari ke-2 → `TRUE` → `1`
+- Jika `a.event_date` NULL, berarti player tidak login di hari ke-2 → `FALSE` → `0`
+
+Hasil CTE `consecutive_check`:
+
+```
++-----------+--------------+
+| player_id | stayed_day_2 |
++-----------+--------------+
+| 1         | 1            | ← Login hari ke-2
+| 2         | 0            | ← Tidak login hari ke-2
+| 3         | 0            | ← Tidak login hari ke-2
++-----------+--------------+
+```
+
+### Langkah 3: Hitung Fraksi
+
+```sql
+SELECT 
+    ROUND(SUM(stayed_day_2)::NUMERIC / COUNT(*), 2) AS fraction
+FROM consecutive_check;
+```
+
+**SUM(stayed_day_2)**: Menghitung jumlah player yang login di hari ke-2.
+
+```
+SUM(1, 0, 0) = 1
+```
+
+**COUNT(\*)**: Menghitung total player.
+
+```
+COUNT(*) = 3
+```
+
+**Fraksi**: `1 / 3 = 0.333...`
+
+**Cast ke NUMERIC**: `SUM(stayed_day_2)::NUMERIC` untuk pembagian decimal yang akurat.
+
+**ROUND(..., 2)**: Bulatkan ke 2 desimal → `0.33`
+
+Hasil akhir:
+
+```
++-----------+
+| fraction  |
++-----------+
+| 0.33      |
++-----------+
+```
+
+Jadi, hanya 1 dari 3 player (33.33%) yang login kembali di hari kedua setelah first login mereka.
+
+## Referensi
+
+- `WITH ... AS (...)`: Membuat CTE (Common Table Expression) sebagai tabel sementara.
+- Multiple CTE: Gunakan koma untuk membuat beberapa CTE dalam 1 query.
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `DISTINCT ON (column)`: Mengambil 1 baris unik pertama untuk setiap nilai kolom tertentu (PostgreSQL specific).
+- `LEFT JOIN`: Menggabungkan dua tabel dengan mempertahankan semua baris dari tabel kiri.
+- `ON`: Menentukan kondisi untuk menggabungkan baris dari kedua tabel.
+- `ORDER BY`: Mengurutkan hasil berdasarkan kolom tertentu.
+- `SUM()`: Menjumlahkan nilai dalam setiap grup.
+- `COUNT()`: Menghitung jumlah baris.
+- `ROUND(value, decimal_places)`: Membulatkan nilai ke jumlah desimal tertentu.
+- `::INT`: Cast value ke tipe data integer.
+- `::NUMERIC`: Cast value ke tipe data numeric untuk pembagian decimal yang akurat.
+- `IS NOT NULL`: Memeriksa apakah nilai tidak NULL.
+- Date Arithmetic: `date + 1` menambahkan 1 hari ke tanggal.
+- Boolean Cast: Boolean `TRUE` menjadi `1`, `FALSE` menjadi `0` saat di-cast ke integer.
+- `AS`: Memberi alias untuk kolom hasil query.
+- [Tipe Data Tanggal dan Waktu](../../basic/01-03-date-time-types)
+- [Memahami 4 Jenis JOIN](../../basic/02-01-4-joins)
