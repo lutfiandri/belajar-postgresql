@@ -1,0 +1,209 @@
+---
+title: Monthly Transactions I
+description: Monthly Transactions I
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Medium" variant="note" />
+<Badge text="Basic Aggregate Functions" variant="note" />
+
+Hitung jumlah dan total amount transaksi per bulan dan negara, termasuk transaksi yang approved, menggunakan `TO_CHAR()`, `COUNT()`, `SUM()`, `FILTER`, dan `GROUP BY`.
+
+https://leetcode.com/problems/monthly-transactions-i
+
+## Soal
+
+> Table: `Transactions`
+>
+> ```
+> +---------------+---------+
+> | Column Name   | Type    |
+> +---------------+---------+
+> | id            | int     |
+> | country       | varchar |
+> | state         | enum    |
+> | amount        | int     |
+> | trans_date    | date    |
+> +---------------+---------+
+> ```
+>
+> `id` is the primary key of this table.
+>
+> The table has information about incoming transactions.
+>
+> The `state` column is an enum of type ["approved", "declined"].
+
+Write an SQL query to find for each month and country, the number of transactions and their total amount, the number of approved transactions and their total amount.
+
+Return the result table in any order.
+
+The query result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Transactions` table:
+>
+> ```
+> +------+---------+----------+--------+------------+
+> | id   | country | state    | amount | trans_date |
+> +------+---------+----------+--------+------------+
+> | 121  | US      | approved | 1000   | 2018-12-18 |
+> | 122  | US      | declined | 2000   | 2018-12-19 |
+> | 123  | US      | approved | 2000   | 2019-01-01 |
+> | 124  | DE      | approved | 2000   | 2019-01-07 |
+> +------+---------+----------+--------+------------+
+> ```
+>
+> Output:
+>
+> ```
+> +----------+---------+-------------+----------------+--------------------+-----------------------+
+> | month    | country | trans_count | approved_count | trans_total_amount | approved_total_amount |
+> +----------+---------+-------------+----------------+--------------------+-----------------------+
+> | 2018-12  | US      | 2           | 1              | 3000               | 1000                  |
+> | 2019-01  | US      | 1           | 1              | 2000               | 2000                  |
+> | 2019-01  | DE      | 1           | 1              | 2000               | 2000                  |
+> +----------+---------+-------------+----------------+--------------------+-----------------------+
+> ```
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Transactions (
+    id INT PRIMARY KEY,
+    country VARCHAR(100),
+    state VARCHAR(20) CHECK (state IN ('approved', 'declined')),
+    amount INT,
+    trans_date DATE
+);
+
+INSERT INTO Transactions (id, country, state, amount, trans_date) VALUES
+    (121, 'US', 'approved', 1000, '2018-12-18'),
+    (122, 'US', 'declined', 2000, '2018-12-19'),
+    (123, 'US', 'approved', 2000, '2019-01-01'),
+    (124, 'DE', 'approved', 2000, '2019-01-07');
+```
+
+## Jawaban SQL
+
+```sql "TO_CHAR(trans_date, 'YYYY-MM')" "FILTER (WHERE state = 'approved')" "GROUP BY 1, 2"
+SELECT 
+    TO_CHAR(trans_date, 'YYYY-MM') AS month,
+    country,
+    COUNT(*) AS trans_count,
+    COUNT(*) FILTER (WHERE state = 'approved') AS approved_count,
+    SUM(amount) AS trans_total_amount,
+    COALESCE(SUM(amount) FILTER (WHERE state = 'approved'), 0) AS approved_total_amount
+FROM Transactions
+GROUP BY 1, 2;
+```
+
+## Penjelasan
+
+Soal ini meminta kita menghitung beberapa metrik transaksi untuk setiap bulan dan negara:
+
+1. **trans_count**: Total jumlah transaksi
+2. **approved_count**: Jumlah transaksi yang approved
+3. **trans_total_amount**: Total amount semua transaksi
+4. **approved_total_amount**: Total amount transaksi yang approved
+
+Mari kita breakdown query-nya step by step:
+
+1. **FROM Transactions**: Ambil data dari tabel `Transactions`.
+
+   Isi tabel `Transactions`:
+
+   ```
+   +------+---------+----------+--------+------------+
+   | id   | country | state    | amount | trans_date |
+   +------+---------+----------+--------+------------+
+   | 121  | US      | approved | 1000   | 2018-12-18 |
+   | 122  | US      | declined | 2000   | 2018-12-19 |
+   | 123  | US      | approved | 2000   | 2019-01-01 |
+   | 124  | DE      | approved | 2000   | 2019-01-07 |
+   +------+---------+----------+--------+------------+
+   ```
+
+2. **TO_CHAR(trans_date, 'YYYY-MM')**: Konversi tanggal ke format bulan.
+
+   Fungsi `TO_CHAR()` digunakan untuk memformat tanggal menjadi string dengan format tertentu.
+
+   - `YYYY`: Tahun 4 digit (contoh: 2018, 2019)
+   - `MM`: Bulan 2 digit (contoh: 01, 12)
+
+   Hasil konversi:
+   - `2018-12-18` → `2018-12`
+   - `2018-12-19` → `2018-12`
+   - `2019-01-01` → `2019-01`
+   - `2019-01-07` → `2019-01`
+
+3. **GROUP BY 1, 2**: Kelompokkan data berdasarkan kolom pertama (month) dan kedua (country).
+
+   `GROUP BY 1, 2` adalah shortcut untuk `GROUP BY month, country`.
+
+   Setelah dikelompokkan:
+   - `2018-12`, US: 2 transaksi (id 121, 122)
+   - `2019-01`, US: 1 transaksi (id 123)
+   - `2019-01`, DE: 1 transaksi (id 124)
+
+4. **COUNT(\*)**: Menghitung total jumlah transaksi di setiap grup.
+
+   - `2018-12`, US: 2 transaksi
+   - `2019-01`, US: 1 transaksi
+   - `2019-01`, DE: 1 transaksi
+
+5. **COUNT(\*) FILTER (WHERE state = 'approved')**: Menghitung jumlah transaksi yang approved.
+
+   - `2018-12`, US: 1 approved (id 121)
+   - `2019-01`, US: 1 approved (id 123)
+   - `2019-01`, DE: 1 approved (id 124)
+
+6. **SUM(amount)**: Menghitung total amount semua transaksi.
+
+   - `2018-12`, US: `1000 + 2000 = 3000`
+   - `2019-01`, US: `2000`
+   - `2019-01`, DE: `2000`
+
+7. **COALESCE(SUM(amount) FILTER (WHERE state = 'approved'), 0)**: Menghitung total amount transaksi yang approved.
+
+   - `2018-12`, US: `1000` (hanya id 121 yang approved)
+   - `2019-01`, US: `2000` (id 123 approved)
+   - `2019-01`, DE: `2000` (id 124 approved)
+
+   Kenapa pakai `COALESCE()`?
+
+   - `SUM(amount) FILTER (WHERE state = 'approved')` bisa menghasilkan `NULL` jika tidak ada transaksi approved di grup tersebut.
+   - `COALESCE()` mengubah `NULL` menjadi `0`, sehingga output lebih konsisten.
+   - Contoh: Jika semua transaksi di suatu grup declined, tanpa `COALESCE()` hasilnya `NULL`, dengan `COALESCE()` hasilnya `0`.
+
+Hasil akhir:
+
+```
++----------+---------+-------------+----------------+--------------------+-----------------------+
+| month    | country | trans_count | approved_count | trans_total_amount | approved_total_amount |
++----------+---------+-------------+----------------+--------------------+-----------------------+
+| 2018-12  | US      | 2           | 1              | 3000               | 1000                  |
+| 2019-01  | US      | 1           | 1              | 2000               | 2000                  |
+| 2019-01  | DE      | 1           | 1              | 2000               | 2000                  |
++----------+---------+-------------+----------------+--------------------+-----------------------+
+```
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `GROUP BY`: Mengelompokkan baris berdasarkan nilai kolom tertentu.
+- `GROUP BY 1, 2`: Shortcut untuk mengelompokkan berdasarkan kolom urutan 1 dan 2 di SELECT.
+- `COUNT()`: Menghitung jumlah baris.
+- `SUM()`: Menjumlahkan nilai dalam setiap grup.
+- `FILTER (WHERE ...)`: Menerapkan kondisi filter pada fungsi agregat (PostgreSQL specific).
+- `TO_CHAR(date, format)`: Memformat tanggal menjadi string dengan format tertentu.
+- `COALESCE(value, default)`: Mengembalikan nilai pertama yang tidak NULL, atau default jika semua NULL.
+- `AS`: Memberi alias untuk kolom hasil query.
+- ENUM Type: Tipe data yang hanya bisa menerima nilai tertentu (approved/declined).
+- [Tipe Data Tanggal dan Waktu](../../basic/01-03-date-time-types)
