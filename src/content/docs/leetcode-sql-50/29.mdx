@@ -1,0 +1,297 @@
+---
+title: Customers Who Bought All Products
+description: Customers Who Bought All Products
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Medium" variant="note" />
+<Badge text="Sorting and Grouping" variant="note" />
+
+Temukan customer yang membeli semua produk menggunakan `GROUP BY`, `HAVING`, `COUNT(DISTINCT)`, dan CTE untuk subquery.
+
+https://leetcode.com/problems/customers-who-bought-all-products
+
+## Soal
+
+> Table: `Customer`
+>
+> ```
+> +-------------+---------+
+> | Column Name | Type    |
+> +-------------+---------+
+> | customer_id | int     |
+> | product_key | int     |
+> +-------------+---------+
+> ```
+>
+> This table may contain duplicates rows.
+>
+> `customer_id` is not NULL.
+>
+> `product_key` is a foreign key (reference column) to Product table.
+
+> Table: `Product`
+>
+> ```
+> +-------------+---------+
+> | Column Name | Type    |
+> +-------------+---------+
+> | product_key | int     |
+> +-------------+---------+
+> ```
+>
+> `product_key` is the primary key (column with unique values) for this table.
+
+Write a solution to report the customer ids from the Customer table that bought all the products in the Product table.
+
+Return the result table in any order.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Customer` table:
+>
+> ```
+> +-------------+-------------+
+> | customer_id | product_key |
+> +-------------+-------------+
+> | 1           | 5           |
+> | 2           | 6           |
+> | 3           | 5           |
+> | 3           | 6           |
+> | 1           | 6           |
+> +-------------+-------------+
+> ```
+>
+> `Product` table:
+>
+> ```
+> +-------------+
+> | product_key |
+> +-------------+
+> | 5           |
+> | 6           |
+> +-------------+
+> ```
+>
+> Output:
+>
+> ```
+> +-------------+
+> | customer_id |
+> +-------------+
+> | 1           |
+> | 3           |
+> +-------------+
+> ```
+>
+> **Explanation:**
+>
+> The customers who bought all the products (5 and 6) are customers with IDs 1 and 3.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Product (
+    product_key INT PRIMARY KEY
+);
+
+CREATE TABLE Customer (
+    customer_id INT,
+    product_key INT,
+    FOREIGN KEY (product_key) REFERENCES Product(product_key)
+);
+
+INSERT INTO Product (product_key) VALUES
+    (5),
+    (6);
+
+INSERT INTO Customer (customer_id, product_key) VALUES
+    (1, 5),
+    (2, 6),
+    (3, 5),
+    (3, 6),
+    (1, 6);
+```
+
+## Jawaban SQL
+
+```sql "WITH total_products AS" "COUNT(DISTINCT product_key)" "HAVING"
+WITH total_products AS (
+    SELECT COUNT(*) AS cnt FROM Product
+)
+
+SELECT customer_id
+FROM Customer
+GROUP BY customer_id
+HAVING COUNT(DISTINCT product_key) = (SELECT cnt FROM total_products);
+```
+
+## Penjelasan
+
+Soal ini meminta kita untuk menemukan customer yang **membeli semua produk** yang ada di tabel `Product`.
+
+Logika dasarnya:
+- Jika ada 2 produk di tabel `Product`, maka customer harus membeli 2 produk yang berbeda
+- Jika ada 5 produk di tabel `Product`, maka customer harus membeli 5 produk yang berbeda
+
+Mari kita breakdown query-nya step by step:
+
+### Langkah 1: Hitung Total Produk yang Tersedia (CTE)
+
+```sql
+WITH total_products AS (
+    SELECT COUNT(*) AS cnt FROM Product
+)
+```
+
+CTE ini menghitung total produk yang tersedia di tabel `Product`.
+
+Hasil CTE `total_products`:
+
+```
++-----+
+| cnt |
++-----+
+| 2   |
++-----+
+```
+
+Ada 2 produk (product_key 5 dan 6).
+
+### Langkah 2: Hitung Jumlah Produk Berbeda yang Dibeli Setiap Customer
+
+```sql
+SELECT customer_id
+FROM Customer
+GROUP BY customer_id
+HAVING COUNT(DISTINCT product_key) = (SELECT cnt FROM total_products);
+```
+
+Mari kita breakdown langkah ini:
+
+**Data Customer**:
+
+```
++-------------+-------------+
+| customer_id | product_key |
++-------------+-------------+
+| 1           | 5           |
+| 2           | 6           |
+| 3           | 5           |
+| 3           | 6           |
+| 1           | 6           |
++-------------+-------------+
+```
+
+**Setelah GROUP BY customer_id**:
+
+```
++-------------+--------------+
+| customer_id | product_keys |
++-------------+--------------+
+| 1           | [5, 6]       |
+| 2           | [6]          |
+| 3           | [5, 6]       |
++-------------+--------------+
+```
+
+**COUNT(DISTINCT product_key)** untuk setiap customer:
+
+```
++-------------+-------------------------+
+| customer_id | COUNT(DISTINCT product) |
++-------------+-------------------------+
+| 1           | 2                       | ← Beli 2 produk berbeda
+| 2           | 1                       | ← Beli 1 produk
+| 3           | 2                       | ← Beli 2 produk berbeda
++-------------+-------------------------+
+```
+
+Kenapa pakai `DISTINCT`?
+- Customer bisa membeli produk yang sama berkali-kali
+- Kita hanya peduli berapa **banyak produk yang berbeda** yang dibeli
+- `DISTINCT` menghilangkan duplikat sebelum dihitung
+
+**HAVING COUNT(DISTINCT product_key) = (SELECT cnt FROM total_products)**:
+
+Filter hanya customer yang jumlah produk berbeda yang dibeli sama dengan total produk yang tersedia.
+
+```
+Total produk = 2
+
+Customer 1: 2 = 2 ✓
+Customer 2: 1 = 2 ✗
+Customer 3: 2 = 2 ✓
+```
+
+Hasil akhir:
+
+```
++-------------+
+| customer_id |
++-------------+
+| 1           |
+| 3           |
++-------------+
+```
+
+### Kenapa Pakai CTE untuk Total Products?
+
+Kita bisa langsung pakai subquery di `HAVING`:
+
+```sql
+SELECT
+    customer_id
+FROM Customer
+GROUP BY customer_id
+HAVING COUNT(DISTINCT product_key) = (SELECT COUNT(*) FROM Product);
+```
+
+Ini juga benar! Tapi menggunakan CTE punya keuntungan:
+- Lebih mudah dibaca dan dipahami
+- CTE memberikan nama yang jelas (`total_products`)
+- Jika perlu menggunakan nilai yang sama berkali-kali, CTE lebih efisien
+
+### Ilustrasi dengan Data yang Lebih Kompleks
+
+Misalkan ada customer yang membeli produk yang sama berkali-kali:
+
+```
++-------------+-------------+
+| customer_id | product_key |
++-------------+-------------+
+| 1           | 5           |
+| 1           | 5           | ← Duplikat
+| 1           | 5           | ← Duplikat
+| 1           | 6           |
++-------------+-------------+
+```
+
+Tanpa `DISTINCT`:
+- `COUNT(product_key)` = 4 ❌ (menghitung duplikat)
+
+Dengan `DISTINCT`:
+- `COUNT(DISTINCT product_key)` = 2 ✓ (menghitung unique: 5 dan 6)
+
+Oleh karena itu, `DISTINCT` sangat penting untuk soal ini!
+
+## Referensi
+
+- `WITH ... AS (...)`: Membuat CTE (Common Table Expression) sebagai tabel sementara.
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `GROUP BY`: Mengelompokkan baris berdasarkan nilai kolom tertentu.
+- `HAVING`: Memfilter grup berdasarkan kondisi agregat.
+- `COUNT()`: Menghitung jumlah baris dalam setiap grup.
+- `COUNT(DISTINCT column)`: Menghitung jumlah nilai unik dalam kolom tertentu untuk setiap grup.
+- `DISTINCT`: Kata kunci untuk menghilangkan duplikat.
+- Subquery in HAVING: Menggunakan subquery di dalam kondisi HAVING.
+- Foreign Key: Kolom yang merujuk ke primary key di tabel lain.
+- `AS`: Memberi alias untuk kolom hasil query.
