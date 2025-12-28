@@ -1,0 +1,336 @@
+---
+title: The Number of Employees Which Report to Each Employee
+description: The Number of Employees Which Report to Each Employee
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Advanced Select and Joins" variant="note" />
+
+Hitung jumlah karyawan dan rata-rata umur yang report ke setiap manager menggunakan self-join, `GROUP BY`, `COUNT()`, dan `AVG()`.
+
+https://leetcode.com/problems/the-number-of-employees-which-report-to-each-employee
+
+## Soal
+
+> Table: `Employees`
+>
+> ```
+> +-------------+----------+
+> | Column Name | Type     |
+> +-------------+----------+
+> | employee_id | int      |
+> | name        | varchar  |
+> | reports_to  | int      |
+> | age         | int      |
+> +-------------+----------+
+> ```
+>
+> `employee_id` is the column with unique values for this table.
+>
+> This table contains information about the employees and the id of the manager they report to. Some employees do not report to anyone (`reports_to` is null).
+
+For this problem, we will consider a **manager** an employee who has at least 1 other employee reporting to them.
+
+Write a solution to report the ids and the names of all managers, the number of employees who report directly to them, and the average age of the reports rounded to the nearest integer.
+
+Return the result table ordered by `employee_id`.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Employees` table:
+>
+> ```
+> +-------------+---------+------------+-----+
+> | employee_id | name    | reports_to | age |
+> +-------------+---------+------------+-----+
+> | 9           | Hercy   | null       | 43  |
+> | 6           | Alice   | 9          | 41  |
+> | 4           | Bob     | 9          | 36  |
+> | 2           | Winston | null       | 37  |
+> +-------------+---------+------------+-----+
+> ```
+>
+> Output:
+>
+> ```
+> +-------------+-------+---------------+-------------+
+> | employee_id | name  | reports_count | average_age |
+> +-------------+-------+---------------+-------------+
+> | 9           | Hercy | 2             | 39          |
+> +-------------+-------+---------------+-------------+
+> ```
+>
+> **Explanation:**
+>
+> Hercy has 2 people report directly to him, Alice and Bob. Their average age is (41+36)/2 = 38.5, which is 39 after rounding it to the nearest integer.
+
+> **Example 2:**
+>
+> Input:
+>
+> `Employees` table:
+>
+> ```
+> +-------------+---------+------------+-----+
+> | employee_id | name    | reports_to | age |
+> |-------------|---------|------------|-----|
+> | 1           | Michael | null       | 45  |
+> | 2           | Alice   | 1          | 38  |
+> | 3           | Bob     | 1          | 42  |
+> | 4           | Charlie | 2          | 34  |
+> | 5           | David   | 2          | 40  |
+> | 6           | Eve     | 3          | 37  |
+> | 7           | Frank   | null       | 50  |
+> | 8           | Grace   | null       | 48  |
+> +-------------+---------+------------+-----+
+> ```
+>
+> Output:
+>
+> ```
+> +-------------+---------+---------------+-------------+
+> | employee_id | name    | reports_count | average_age |
+> | ----------- | ------- | ------------- | ----------- |
+> | 1           | Michael | 2             | 40          |
+> | 2           | Alice   | 2             | 37          |
+> | 3           | Bob     | 1             | 37          |
+> +-------------+---------+---------------+-------------+
+> ```
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Employees (
+    employee_id INT PRIMARY KEY,
+    name VARCHAR(100),
+    reports_to INT,
+    age INT
+);
+
+-- Example 1
+INSERT INTO Employees (employee_id, name, reports_to, age) VALUES
+    (9, 'Hercy', NULL, 43),
+    (6, 'Alice', 9, 41),
+    (4, 'Bob', 9, 36),
+    (2, 'Winston', NULL, 37);
+
+-- Untuk test Example 2, hapus data dan insert data baru:
+-- DELETE FROM Employees;
+-- INSERT INTO Employees (employee_id, name, reports_to, age) VALUES
+--     (1, 'Michael', NULL, 45),
+--     (2, 'Alice', 1, 38),
+--     (3, 'Bob', 1, 42),
+--     (4, 'Charlie', 2, 34),
+--     (5, 'David', 2, 40),
+--     (6, 'Eve', 3, 37),
+--     (7, 'Frank', NULL, 50),
+--     (8, 'Grace', NULL, 48);
+```
+
+## Jawaban SQL
+
+```sql "Self-Join" "e1.reports_to = e2.employee_id" "AVG(e1.age)::int"
+SELECT
+    e2.employee_id,
+    e2.name,
+    COUNT(*) AS reports_count,
+    AVG(e1.age)::INT AS average_age
+FROM Employees e1
+JOIN Employees e2 ON e1.reports_to = e2.employee_id
+GROUP BY e2.employee_id, e2.name
+ORDER BY e2.employee_id;
+```
+
+## Penjelasan
+
+Soal ini meminta kita untuk menemukan semua **manager** (karyawan yang punya minimal 1 karyawan yang report ke mereka), beserta:
+- Jumlah karyawan yang report ke mereka
+- Rata-rata umur karyawan yang report
+
+Mari kita breakdown query-nya step by step:
+
+### Langkah 1: Self-Join untuk Menghubungkan Employee dengan Manager
+
+```sql
+FROM Employees e1
+JOIN Employees e2 ON e1.reports_to = e2.employee_id
+```
+
+**Self-Join** adalah teknik join dimana tabel di-join dengan dirinya sendiri. Kita menggunakan alias berbeda (`e1` dan `e2`) untuk membedakan peran setiap instance tabel:
+
+- `e1`: Tabel karyawan (employee)
+- `e2`: Tabel manager
+
+**Kondisi JOIN**: `e1.reports_to = e2.employee_id`
+
+Artinya: "Ambil karyawan (`e1`) yang report ke manager (`e2`)"
+
+Mari kita lihat Example 1:
+
+**Data Employees**:
+
+```
++-------------+---------+------------+-----+
+| employee_id | name    | reports_to | age |
++-------------+---------+------------+-----+
+| 9           | Hercy   | null       | 43  |
+| 6           | Alice   | 9          | 41  |
+| 4           | Bob     | 9          | 36  |
+| 2           | Winston | null       | 37  |
++-------------+---------+------------+-----+
+```
+
+**Setelah Self-Join**:
+
+```
+e1 (Employee)                          e2 (Manager)
++-------------+---------+-----+        +-------------+-------+-----+
+| employee_id | name    | age |        | employee_id | name  | age |
++-------------+---------+-----+        +-------------+-------+-----+
+| 6           | Alice   | 41  |   →    | 9           | Hercy | 43  |
+| 4           | Bob     | 36  |   →    | 9           | Hercy | 43  |
++-------------+---------+-----+        +-------------+-------+-----+
+```
+
+Penjelasan:
+- Alice (6) report ke Hercy (9) → Match ✓
+- Bob (4) report ke Hercy (9) → Match ✓
+- Hercy (9) report ke NULL → Tidak ada match ✗
+- Winston (2) report ke NULL → Tidak ada match ✗
+
+Jadi setelah JOIN, kita punya 2 baris:
+1. Alice report ke Hercy
+2. Bob report ke Hercy
+
+### Langkah 2: Group By Manager
+
+```sql
+GROUP BY e2.employee_id, e2.name
+```
+
+Kelompokkan hasil JOIN berdasarkan manager (e2).
+
+Setelah dikelompokkan:
+- Manager Hercy (9): [Alice (41 tahun), Bob (36 tahun)]
+
+### Langkah 3: Hitung Agregasi
+
+```sql
+COUNT(*) AS reports_count,
+AVG(e1.age)::INT AS average_age
+```
+
+**COUNT(\*)**: Hitung jumlah karyawan yang report ke manager.
+
+- Manager Hercy: 2 karyawan (Alice dan Bob)
+
+**AVG(e1.age)::INT**: Hitung rata-rata umur karyawan yang report, lalu cast ke integer.
+
+- Manager Hercy: `AVG(41, 36) = (41 + 36) / 2 = 77 / 2 = 38.5`
+- Cast ke INT: `38.5` → `39` (PostgreSQL membulatkan ke integer terdekat)
+
+### Langkah 4: Order By
+
+```sql
+ORDER BY e2.employee_id
+```
+
+Urutkan hasil berdasarkan `employee_id` manager.
+
+Hasil akhir:
+
+```
++-------------+-------+---------------+-------------+
+| employee_id | name  | reports_count | average_age |
++-------------+-------+---------------+-------------+
+| 9           | Hercy | 2             | 39          |
++-------------+-------+---------------+-------------+
+```
+
+### Ilustrasi dengan Example 2 (Data Lebih Kompleks)
+
+**Data**:
+
+```
++-------------+---------+------------+-----+
+| employee_id | name    | reports_to | age |
+|-------------|---------|------------|-----|
+| 1           | Michael | null       | 45  |
+| 2           | Alice   | 1          | 38  |
+| 3           | Bob     | 1          | 42  |
+| 4           | Charlie | 2          | 34  |
+| 5           | David   | 2          | 40  |
+| 6           | Eve     | 3          | 37  |
+| 7           | Frank   | null       | 50  |
+| 8           | Grace   | null       | 48  |
++-------------+---------+------------+-----+
+```
+
+**Setelah Self-Join**:
+
+```
+e1 (Employee)                     e2 (Manager)
++------+---------+-----+          +------+---------+
+| id   | name    | age |          | id   | name    |
++------+---------+-----+          +------+---------+
+| 2    | Alice   | 38  |    →     | 1    | Michael |
+| 3    | Bob     | 42  |    →     | 1    | Michael |
+| 4    | Charlie | 34  |    →     | 2    | Alice   |
+| 5    | David   | 40  |    →     | 2    | Alice   |
+| 6    | Eve     | 37  |    →     | 3    | Bob     |
++------+---------+-----+          +------+---------+
+```
+
+**Setelah GROUP BY dan Agregasi**:
+
+- Manager Michael (1): 2 reports (Alice 38, Bob 42) → AVG: `(38+42)/2 = 40`
+- Manager Alice (2): 2 reports (Charlie 34, David 40) → AVG: `(34+40)/2 = 37`
+- Manager Bob (3): 1 report (Eve 37) → AVG: `37`
+
+Hasil akhir:
+
+```
++-------------+---------+---------------+-------------+
+| employee_id | name    | reports_count | average_age |
+| ----------- | ------- | ------------- | ----------- |
+| 1           | Michael | 2             | 40          |
+| 2           | Alice   | 2             | 37          |
+| 3           | Bob     | 1             | 37          |
++-------------+---------+---------------+-------------+
+```
+
+### Kenapa Pakai Self-Join?
+
+Self-join cocok untuk data **hierarkis** (seperti struktur organisasi) dimana relasi parent-child ada di dalam tabel yang sama.
+
+Dalam kasus ini:
+- **Parent**: Manager (e2)
+- **Child**: Employee yang report ke manager (e1)
+- **Relasi**: `e1.reports_to = e2.employee_id`
+
+Dengan self-join, kita bisa menghubungkan employee dengan manager mereka dalam satu query!
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `JOIN`: Menggabungkan dua tabel berdasarkan kondisi tertentu.
+- Self-Join: Join tabel dengan dirinya sendiri menggunakan alias berbeda.
+- `ON`: Menentukan kondisi untuk menggabungkan baris dari kedua tabel.
+- `GROUP BY`: Mengelompokkan baris berdasarkan nilai kolom tertentu.
+- `COUNT()`: Menghitung jumlah baris dalam setiap grup.
+- `AVG()`: Menghitung rata-rata nilai dalam setiap grup.
+- `::INT`: Cast value ke tipe data integer (pembulatan ke integer terdekat).
+- `ORDER BY`: Mengurutkan hasil berdasarkan kolom tertentu.
+- `AS`: Memberi alias untuk kolom hasil query.
+- Hierarchical Data: Data yang memiliki struktur parent-child atau tree.
+- `NULL`: Nilai khusus yang merepresentasikan "tidak ada nilai".
+- [Memahami 4 Jenis JOIN](../../basic/02-01-4-joins)
