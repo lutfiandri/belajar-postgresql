@@ -1,0 +1,210 @@
+---
+title: Exchange Seats
+description: Exchange Seats
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Medium" variant="note" />
+<Badge text="Subquery" variant="note" />
+
+Tukar seat id setiap 2 student berturut-turut menggunakan window function `LEAD()` dan `LAG()` dengan `CASE WHEN`.
+
+https://leetcode.com/problems/exchange-seats
+
+## Soal
+
+> Table: `Seat`
+>
+> ```
+> +-------------+---------+
+> | Column Name | Type    |
+> +-------------+---------+
+> | id          | int     |
+> | student     | varchar |
+> +-------------+---------+
+> ```
+>
+> `id` is the primary key (unique value) column for this table.
+>
+> Each row of this table indicates the name and the ID of a student.
+>
+> The ID sequence always starts from 1 and increments continuously.
+
+Write a solution to swap the seat id of every two consecutive students. If the number of students is odd, the id of the last student is not swapped.
+
+Return the result table ordered by `id` in ascending order.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Seat` table:
+>
+> ```
+> +----+---------+
+> | id | student |
+> +----+---------+
+> | 1  | Abbot   |
+> | 2  | Doris   |
+> | 3  | Emerson |
+> | 4  | Green   |
+> | 5  | Jeames  |
+> +----+---------+
+> ```
+>
+> Output:
+>
+> ```
+> +----+---------+
+> | id | student |
+> +----+---------+
+> | 1  | Doris   |
+> | 2  | Abbot   |
+> | 3  | Green   |
+> | 4  | Emerson |
+> | 5  | Jeames  |
+> +----+---------+
+> ```
+>
+> **Explanation:**
+>
+> Note that if the number of students is odd, there is no need to change the last one's seat.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Seat (
+    id INT PRIMARY KEY,
+    student VARCHAR(100)
+);
+
+INSERT INTO Seat (id, student) VALUES
+    (1, 'Abbot'),
+    (2, 'Doris'),
+    (3, 'Emerson'),
+    (4, 'Green'),
+    (5, 'Jeames');
+```
+
+## Jawaban SQL
+
+```sql "LEAD(student)" "LAG(student)" "COALESCE"
+SELECT
+    id,
+    CASE
+        WHEN id % 2 = 1 THEN COALESCE(LEAD(student) OVER(ORDER BY id), student)
+        ELSE LAG(student) OVER(ORDER BY id)
+    END AS student
+FROM Seat
+ORDER BY id;
+```
+
+## Penjelasan
+
+Soal ini meminta kita **swap** (tukar) student setiap 2 seat berturut-turut:
+- ID ganjil (1, 3, 5, ...) → ambil student dari ID berikutnya
+- ID genap (2, 4, 6, ...) → ambil student dari ID sebelumnya
+- Jika ID terakhir ganjil dan tidak punya pasangan → tetap pakai student sendiri
+
+### Window Function: LEAD dan LAG
+
+**LEAD()**: Ambil nilai dari baris **berikutnya**
+
+**LAG()**: Ambil nilai dari baris **sebelumnya**
+
+### Breakdown Query
+
+```sql
+CASE
+    WHEN id % 2 = 1 THEN COALESCE(LEAD(student) OVER(ORDER BY id), student)
+    ELSE LAG(student) OVER(ORDER BY id)
+END
+```
+
+**Kondisi 1: ID Ganjil** (`id % 2 = 1`)
+
+```sql
+COALESCE(LEAD(student) OVER(ORDER BY id), student)
+```
+
+- `LEAD(student)`: Ambil student dari baris berikutnya
+- `COALESCE(..., student)`: Jika `LEAD` return `NULL` (tidak ada baris berikutnya), pakai student sendiri
+
+**Kondisi 2: ID Genap** (`id % 2 = 0`)
+
+```sql
+LAG(student) OVER(ORDER BY id)
+```
+
+- `LAG(student)`: Ambil student dari baris sebelumnya
+
+### Hasil
+
+**Data awal**:
+
+```
++----+---------+
+| id | student |
++----+---------+
+| 1  | Abbot   |
+| 2  | Doris   |
+| 3  | Emerson |
+| 4  | Green   |
+| 5  | Jeames  |
++----+---------+
+```
+
+
+**Hasil akhir**:
+
+
+```
++----+---------+
+| id | student |
++----+---------+
+| 1  | Doris   |
+| 2  | Abbot   |
+| 3  | Green   |
+| 4  | Emerson |
+| 5  | Jeames  |
++----+---------+
+```
+
+### Kenapa Pakai COALESCE?
+
+Tanpa `COALESCE`, jika jumlah student ganjil, ID terakhir akan jadi `NULL`:
+
+```sql
+-- ❌ Tanpa COALESCE
+WHEN id % 2 = 1 THEN LEAD(student) OVER(ORDER BY id)
+
+Result ID 5: NULL (salah!)
+```
+
+Dengan `COALESCE`, jika `LEAD` return `NULL`, kita fallback ke student asli:
+
+```sql
+-- ✓ Dengan COALESCE
+WHEN id % 2 = 1 THEN COALESCE(LEAD(student) OVER(ORDER BY id), student)
+
+Result ID 5: Jeames (benar!)
+```
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `ORDER BY`: Mengurutkan hasil berdasarkan kolom tertentu.
+- `CASE WHEN ... THEN ... ELSE ... END`: Conditional logic untuk mengembalikan nilai berdasarkan kondisi.
+- `LEAD(column)`: Window function untuk mengambil nilai dari baris berikutnya.
+- `LAG(column)`: Window function untuk mengambil nilai dari baris sebelumnya.
+- `OVER (ORDER BY ...)`: Mendefinisikan window dan urutan untuk window function.
+- `COALESCE(value1, value2)`: Mengembalikan nilai pertama yang tidak `NULL`.
+- Modulo Operator (`%`): Sisa hasil bagi (untuk cek ganjil/genap).
+- Window Function: Fungsi yang melakukan kalkulasi pada sekumpulan baris yang terkait dengan baris saat ini.
+- `NULL`: Nilai khusus yang merepresentasikan "tidak ada nilai".
