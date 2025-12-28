@@ -1,0 +1,231 @@
+---
+title: Classes With at Least 5 Students
+description: Classes With at Least 5 Students
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Sorting and Grouping" variant="note" />
+
+Temukan semua kelas yang memiliki minimal 5 siswa menggunakan `GROUP BY`, `COUNT()`, dan `HAVING`.
+
+https://leetcode.com/problems/classes-with-at-least-5-students
+
+## Soal
+
+> Table: `Courses`
+>
+> ```
+> +-------------+---------+
+> | Column Name | Type    |
+> +-------------+---------+
+> | student     | varchar |
+> | class       | varchar |
+> +-------------+---------+
+> ```
+>
+> (`student`, `class`) is the primary key (combination of columns with unique values) for this table.
+>
+> Each row of this table indicates the name of a student and the class in which they are enrolled.
+
+Write a solution to find all the classes that have at least five students.
+
+Return the result table in any order.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Courses` table:
+>
+> ```
+> +---------+----------+
+> | student | class    |
+> +---------+----------+
+> | A       | Math     |
+> | B       | English  |
+> | C       | Math     |
+> | D       | Biology  |
+> | E       | Math     |
+> | F       | Computer |
+> | G       | Math     |
+> | H       | Math     |
+> | I       | Math     |
+> +---------+----------+
+> ```
+>
+> Output:
+>
+> ```
+> +---------+
+> | class   |
+> +---------+
+> | Math    |
+> +---------+
+> ```
+>
+> **Explanation:**
+>
+> - Math has 6 students, so we include it.
+> - English has 1 student, so we do not include it.
+> - Biology has 1 student, so we do not include it.
+> - Computer has 1 student, so we do not include it.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Courses (
+    student VARCHAR(10),
+    class VARCHAR(50),
+    PRIMARY KEY (student, class)
+);
+
+INSERT INTO Courses (student, class) VALUES
+    ('A', 'Math'),
+    ('B', 'English'),
+    ('C', 'Math'),
+    ('D', 'Biology'),
+    ('E', 'Math'),
+    ('F', 'Computer'),
+    ('G', 'Math'),
+    ('H', 'Math'),
+    ('I', 'Math');
+```
+
+## Jawaban SQL
+
+```sql "HAVING"
+SELECT class
+FROM Courses
+GROUP BY class
+HAVING COUNT(student) >= 5;
+```
+
+## Penjelasan
+
+Soal ini meminta kita untuk menemukan kelas yang memiliki **minimal 5 siswa**.
+
+Mari kita breakdown query-nya step by step:
+
+1. **FROM Courses**: Ambil data dari tabel `Courses`.
+
+   Isi tabel `Courses`:
+
+   ```
+   +---------+----------+
+   | student | class    |
+   +---------+----------+
+   | A       | Math     |
+   | B       | English  |
+   | C       | Math     |
+   | D       | Biology  |
+   | E       | Math     |
+   | F       | Computer |
+   | G       | Math     |
+   | H       | Math     |
+   | I       | Math     |
+   +---------+----------+
+   ```
+
+2. **GROUP BY class**: Kelompokkan data berdasarkan `class`.
+
+   Setelah dikelompokkan:
+   - Math: [A, C, E, G, H, I] → 6 students
+   - English: [B] → 1 student
+   - Biology: [D] → 1 student
+   - Computer: [F] → 1 student
+
+3. **COUNT(student)**: Hitung jumlah siswa di setiap kelas.
+
+   ```
+   +----------+-------+
+   | class    | count |
+   +----------+-------+
+   | Math     | 6     |
+   | English  | 1     |
+   | Biology  | 1     |
+   | Computer | 1     |
+   +----------+-------+
+   ```
+
+4. **HAVING COUNT(student) >= 5**: Filter grup yang memiliki minimal 5 siswa.
+
+   Setelah filter:
+
+   ```
+   +----------+-------+
+   | class    | count |
+   +----------+-------+
+   | Math     | 6     | ✓
+   +----------+-------+
+   ```
+
+Hasil akhir (hanya tampilkan kolom `class`):
+
+```
++---------+
+| class   |
++---------+
+| Math    |
++---------+
+```
+
+### Kenapa Pakai HAVING, Bukan WHERE?
+
+Ini adalah pertanyaan yang sangat bagus dan penting untuk dipahami!
+
+**WHERE** dan **HAVING** keduanya digunakan untuk filter, tapi mereka bekerja di tahap yang berbeda:
+
+| Aspek | WHERE | HAVING |
+|-------|-------|--------|
+| **Kapan dijalankan** | Sebelum `GROUP BY` | Setelah `GROUP BY` |
+| **Filter apa** | Baris individual | Grup hasil agregasi |
+| **Bisa pakai aggregate function?** | ❌ Tidak | ✓ Ya |
+
+**Urutan Eksekusi SQL**:
+
+```
+1. FROM       → Ambil data dari tabel
+2. WHERE      → Filter baris individual
+3. GROUP BY   → Kelompokkan data
+4. HAVING     → Filter grup
+5. SELECT     → Pilih kolom
+6. ORDER BY   → Urutkan hasil
+```
+
+**Contoh dengan WHERE** (❌ Salah untuk kasus ini):
+
+```sql
+-- ❌ Error! Tidak bisa pakai aggregate function di WHERE
+SELECT class
+FROM Courses
+WHERE COUNT(student) >= 5  -- Error!
+GROUP BY class;
+```
+
+Error karena `WHERE` dijalankan **sebelum** `GROUP BY`, jadi `COUNT(student)` belum bisa dihitung.
+
+
+### Analogi Sederhana
+
+Bayangkan kamu punya sekumpulan bola dengan warna berbeda:
+
+- **WHERE**: "Buang semua bola merah sebelum kita kelompokkan" (filter individual item)
+- **HAVING**: "Setelah dikelompokkan, buang grup yang punya kurang dari 5 bola" (filter grup)
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `GROUP BY`: Mengelompokkan baris berdasarkan nilai kolom tertentu.
+- `COUNT()`: Menghitung jumlah baris dalam setiap grup.
+- `HAVING`: Memfilter grup berdasarkan kondisi agregat (dijalankan setelah GROUP BY).
+- `WHERE`: Memfilter baris individual (dijalankan sebelum GROUP BY).
+- Aggregate Function: Fungsi yang melakukan kalkulasi pada sekumpulan nilai (COUNT, SUM, AVG, MIN, MAX).
+- Primary Key Komposit: Primary key yang terdiri dari kombinasi beberapa kolom.
+- SQL Execution Order: Urutan eksekusi query SQL (FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY).
