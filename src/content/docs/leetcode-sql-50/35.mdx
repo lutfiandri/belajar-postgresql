@@ -1,0 +1,374 @@
+---
+title: Last Person to Fit in the Bus
+description: Last Person to Fit in the Bus
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Medium" variant="note" />
+<Badge text="Advanced Select and Joins" variant="note" />
+
+Temukan orang terakhir yang bisa naik bus tanpa melebihi batas berat menggunakan window function `SUM() OVER()` untuk running total.
+
+https://leetcode.com/problems/last-person-to-fit-in-the-bus
+
+## Soal
+
+> Table: `Queue`
+>
+> ```
+> +-------------+---------+
+> | Column Name | Type    |
+> +-------------+---------+
+> | person_id   | int     |
+> | person_name | varchar |
+> | weight      | int     |
+> | turn        | int     |
+> +-------------+---------+
+> ```
+>
+> `person_id` column contains unique values.
+>
+> This table has the information about all people waiting for a bus.
+>
+> The `person_id` and `turn` columns will contain all numbers from 1 to n, where n is the number of rows in the table.
+>
+> `turn` determines the order of which the people will board the bus, where turn=1 denotes the first person to board and turn=n denotes the last person to board.
+>
+> `weight` is the weight of the person in kilograms.
+
+There is a queue of people waiting to board a bus. However, the bus has a weight limit of **1000 kilograms**, so there may be some people who cannot board.
+
+Write a solution to find the `person_name` of the **last person** that can fit on the bus without exceeding the weight limit. The test cases are generated such that the first person does not exceed the weight limit.
+
+Note that only one person can board the bus at any given turn.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Queue` table:
+>
+> ```
+> +-----------+-------------+--------+------+
+> | person_id | person_name | weight | turn |
+> +-----------+-------------+--------+------+
+> | 5         | Alice       | 250    | 1    |
+> | 4         | Bob         | 175    | 5    |
+> | 3         | Alex        | 350    | 2    |
+> | 6         | John Cena   | 400    | 3    |
+> | 1         | Winston     | 500    | 6    |
+> | 2         | Marie       | 200    | 4    |
+> +-----------+-------------+--------+------+
+> ```
+>
+> Output:
+>
+> ```
+> +-------------+
+> | person_name |
+> +-------------+
+> | John Cena   |
+> +-------------+
+> ```
+>
+> **Explanation:**
+>
+> The folowing table is ordered by the turn for simplicity.
+>
+> ```
+> +------+----+-----------+--------+--------------+
+> | Turn | ID | Name      | Weight | Total Weight |
+> +------+----+-----------+--------+--------------+
+> | 1    | 5  | Alice     | 250    | 250          |
+> | 2    | 3  | Alex      | 350    | 600          |
+> | 3    | 6  | John Cena | 400    | 1000         | (last person to board)
+> | 4    | 2  | Marie     | 200    | 1200         | (cannot board)
+> | 5    | 4  | Bob       | 175    | ___          |
+> | 6    | 1  | Winston   | 500    | ___          |
+> +------+----+-----------+--------+--------------+
+> ```
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Queue (
+    person_id INT PRIMARY KEY,
+    person_name VARCHAR(100),
+    weight INT,
+    turn INT
+);
+
+INSERT INTO Queue (person_id, person_name, weight, turn) VALUES
+    (5, 'Alice', 250, 1),
+    (4, 'Bob', 175, 5),
+    (3, 'Alex', 350, 2),
+    (6, 'John Cena', 400, 3),
+    (1, 'Winston', 500, 6),
+    (2, 'Marie', 200, 4);
+```
+
+## Jawaban SQL
+
+```sql "SUM(weight) OVER(ORDER BY turn ASC)" "running_weight_total"
+WITH queue1 AS (
+    SELECT
+        person_name,
+        turn,
+        weight,
+        SUM(weight) OVER(ORDER BY turn ASC) AS running_weight_total
+    FROM Queue
+)
+SELECT person_name
+FROM queue1
+WHERE running_weight_total <= 1000
+ORDER BY turn DESC
+LIMIT 1;
+```
+
+## Penjelasan
+
+Soal ini meminta kita untuk menemukan **orang terakhir** yang bisa naik bus tanpa melebihi batas berat **1000 kg**.
+
+Untuk menyelesaikan soal ini, kita perlu:
+1. Hitung **running total** berat kumulatif (orang pertama, pertama + kedua, pertama + kedua + ketiga, dst.)
+2. Filter orang yang total beratnya ≤ 1000 kg
+3. Ambil orang terakhir dari hasil filter
+
+### Apa itu SUM() OVER()?
+
+`SUM() OVER()` adalah **window function** yang menghitung **running total** (cumulative sum) tanpa mengelompokkan baris seperti `GROUP BY`.
+
+**Perbedaan dengan SUM() biasa**:
+
+| Aspek | SUM() biasa | SUM() OVER() |
+|-------|-------------|--------------|
+| **Grouping** | Perlu `GROUP BY`, hasilnya 1 baris per grup | Tidak perlu `GROUP BY`, setiap baris tetap ada |
+| **Output** | Agregasi (1 nilai per grup) | Running total (setiap baris punya nilai kumulatif) |
+| **Urutan** | Tidak peduli urutan | Peduli urutan (via `ORDER BY` dalam `OVER`) |
+
+**Syntax**:
+
+```sql
+SUM(column) OVER(ORDER BY sort_column)
+```
+
+- `column`: Kolom yang ingin dijumlahkan
+- `ORDER BY`: Menentukan urutan perhitungan running total
+
+Mari kita breakdown query-nya step by step:
+
+### Langkah 1: CTE dengan Running Total
+
+```sql
+WITH queue1 AS (
+    SELECT
+        person_name,
+        turn,
+        weight,
+        SUM(weight) OVER(ORDER BY turn ASC) AS running_weight_total
+    FROM Queue
+)
+```
+
+**SUM(weight) OVER(ORDER BY turn ASC)**: Hitung running total berat berdasarkan urutan `turn`.
+
+**Data Queue** (belum terurut):
+
+```
++-----------+-------------+--------+------+
+| person_id | person_name | weight | turn |
++-----------+-------------+--------+------+
+| 5         | Alice       | 250    | 1    |
+| 4         | Bob         | 175    | 5    |
+| 3         | Alex        | 350    | 2    |
+| 6         | John Cena   | 400    | 3    |
+| 1         | Winston     | 500    | 6    |
+| 2         | Marie       | 200    | 4    |
++-----------+-------------+--------+------+
+```
+
+**Setelah ORDER BY turn dan SUM() OVER()**:
+
+Window function akan memproses baris berdasarkan `ORDER BY turn ASC`:
+
+```
++------+-------------+--------+----------------------+
+| turn | person_name | weight | running_weight_total |
++------+-------------+--------+----------------------+
+| 1    | Alice       | 250    | 250                  | ← 250
+| 2    | Alex        | 350    | 600                  | ← 250 + 350
+| 3    | John Cena   | 400    | 1000                 | ← 250 + 350 + 400
+| 4    | Marie       | 200    | 1200                 | ← 250 + 350 + 400 + 200
+| 5    | Bob         | 175    | 1375                 | ← 250 + 350 + 400 + 200 + 175
+| 6    | Winston     | 500    | 1875                 | ← Total semua
++------+-------------+--------+----------------------+
+```
+
+**Cara Kerja Running Total**:
+
+- **Turn 1 (Alice)**: `running_total = 250` (hanya Alice)
+- **Turn 2 (Alex)**: `running_total = 250 + 350 = 600` (Alice + Alex)
+- **Turn 3 (John Cena)**: `running_total = 250 + 350 + 400 = 1000` (Alice + Alex + John Cena)
+- **Turn 4 (Marie)**: `running_total = 250 + 350 + 400 + 200 = 1200` (semua sebelumnya + Marie)
+- Dan seterusnya...
+
+**Hasil CTE `queue1`**:
+
+```
++-------------+------+--------+----------------------+
+| person_name | turn | weight | running_weight_total |
++-------------+------+--------+----------------------+
+| Alice       | 1    | 250    | 250                  |
+| Alex        | 2    | 350    | 600                  |
+| John Cena   | 3    | 400    | 1000                 |
+| Marie       | 4    | 200    | 1200                 |
+| Bob         | 5    | 175    | 1375                 |
+| Winston     | 6    | 500    | 1875                 |
++-------------+------+--------+----------------------+
+```
+
+### Langkah 2: Filter yang Bisa Naik (≤ 1000 kg)
+
+```sql
+SELECT person_name
+FROM queue1
+WHERE running_weight_total <= 1000
+```
+
+Filter hanya orang yang `running_weight_total ≤ 1000`.
+
+**Setelah filter**:
+
+```
++-------------+------+----------------------+
+| person_name | turn | running_weight_total |
++-------------+------+----------------------+
+| Alice       | 1    | 250                  | ✓
+| Alex        | 2    | 600                  | ✓
+| John Cena   | 3    | 1000                 | ✓ (tepat 1000)
++-------------+------+----------------------+
+```
+
+Marie (1200), Bob (1375), dan Winston (1875) tidak masuk karena melebihi 1000 kg.
+
+### Langkah 3: Ambil Orang Terakhir
+
+```sql
+ORDER BY turn DESC
+LIMIT 1
+```
+
+**ORDER BY turn DESC**: Urutkan berdasarkan `turn` dari besar ke kecil (orang terakhir di atas).
+
+**LIMIT 1**: Ambil hanya 1 baris teratas (orang terakhir).
+
+**Setelah ORDER BY DESC**:
+
+```
++-------------+------+
+| person_name | turn |
++-------------+------+
+| John Cena   | 3    | ← Teratas setelah diurutkan DESC
+| Alex        | 2    |
+| Alice       | 1    |
++-------------+------+
+```
+
+**Setelah LIMIT 1**:
+
+```
++-------------+
+| person_name |
++-------------+
+| John Cena   |
++-------------+
+```
+
+Hasil akhir: **John Cena** adalah orang terakhir yang bisa naik bus (total berat = 1000 kg).
+
+### Visualisasi Timeline Naik Bus
+
+```
+Bus Weight Limit: 1000 kg
+
+Turn 1: Alice (250)
+        Total: 250 ✓ (bisa naik)
+
+Turn 2: Alex (350)
+        Total: 250 + 350 = 600 ✓ (bisa naik)
+
+Turn 3: John Cena (400)
+        Total: 600 + 400 = 1000 ✓ (bisa naik, tepat limit!)
+        → Orang terakhir yang bisa naik
+
+Turn 4: Marie (200)
+        Total: 1000 + 200 = 1200 ✗ (tidak bisa naik, melebihi limit)
+
+Turn 5: Bob (175)
+        ✗ (tidak bisa naik, karena sudah penuh)
+
+Turn 6: Winston (500)
+        ✗ (tidak bisa naik, karena sudah penuh)
+```
+
+### Contoh Running Total dengan Data Lain
+
+Misalkan ada data:
+
+```
++------+--------+
+| turn | weight |
++------+--------+
+| 1    | 100    |
+| 2    | 200    |
+| 3    | 300    |
++------+--------+
+```
+
+**Dengan SUM() biasa + GROUP BY** (❌ Tidak sesuai kebutuhan):
+
+```sql
+SELECT SUM(weight) FROM table;
+```
+
+Hasil: `600` (1 nilai total)
+
+**Dengan SUM() OVER()** (✓ Running total):
+
+```sql
+SELECT weight, SUM(weight) OVER(ORDER BY turn) FROM table;
+```
+
+Hasil:
+
+```
++--------+-------------+
+| weight | running_sum |
++--------+-------------+
+| 100    | 100         |
+| 200    | 300         | ← 100 + 200
+| 300    | 600         | ← 100 + 200 + 300
++--------+-------------+
+```
+
+Setiap baris tetap ada dan punya nilai kumulatif!
+
+## Referensi
+
+- `WITH ... AS (...)`: Membuat CTE (Common Table Expression) sebagai tabel sementara.
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `WHERE`: Memfilter baris berdasarkan kondisi.
+- `ORDER BY ... DESC`: Mengurutkan dari besar ke kecil (descending).
+- `LIMIT`: Membatasi jumlah baris yang dikembalikan.
+- `SUM()`: Menjumlahkan nilai.
+- `SUM() OVER(...)`: Window function untuk menghitung running total.
+- `OVER (ORDER BY ...)`: Mendefinisikan window dan urutan untuk window function.
+- Window Function: Fungsi yang melakukan kalkulasi pada sekumpulan baris yang terkait dengan baris saat ini.
+- Running Total (Cumulative Sum): Jumlah kumulatif yang bertambah seiring urutan baris.
+- `AS`: Memberi alias untuk kolom hasil query.
