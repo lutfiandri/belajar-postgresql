@@ -1,0 +1,298 @@
+---
+title: Consecutive Numbers (Self Join)
+description: Consecutive Numbers (Self Join)
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Medium" variant="note" />
+<Badge text="Advanced Select and Joins" variant="note" />
+
+Temukan angka yang muncul minimal 3 kali berturut-turut menggunakan self-join dengan kondisi consecutive dan `DISTINCT`.
+
+https://leetcode.com/problems/consecutive-numbers
+
+## Soal
+
+> Table: `Logs`
+>
+> ```
+> +-------------+---------+
+> | Column Name | Type    |
+> +-------------+---------+
+> | id          | int     |
+> | num         | varchar |
+> +-------------+---------+
+> ```
+>
+> In SQL, `id` is the primary key for this table.
+>
+> `id` is an autoincrement column starting from 1.
+
+Find all numbers that appear at least three times consecutively.
+
+Return the result table in any order.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Logs` table:
+>
+> ```
+> +----+-----+
+> | id | num |
+> +----+-----+
+> | 1  | 1   |
+> | 2  | 1   |
+> | 3  | 1   |
+> | 4  | 2   |
+> | 5  | 1   |
+> | 6  | 2   |
+> | 7  | 2   |
+> +----+-----+
+> ```
+>
+> Output:
+>
+> ```
+> +-----------------+
+> | ConsecutiveNums |
+> +-----------------+
+> | 1               |
+> +-----------------+
+> ```
+>
+> **Explanation:**
+>
+> 1 is the only number that appears consecutively for at least three times.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Logs (
+    id INT PRIMARY KEY,
+    num VARCHAR(10)
+);
+
+INSERT INTO Logs (id, num) VALUES
+    (1, '1'),
+    (2, '1'),
+    (3, '1'),
+    (4, '2'),
+    (5, '1'),
+    (6, '2'),
+    (7, '2');
+```
+
+## Jawaban SQL
+
+```sql "Logs l1" "Logs l2" "Logs l3" "DISTINCT"
+SELECT DISTINCT
+    l1.num AS ConsecutiveNums
+FROM Logs l1
+JOIN Logs l2 ON l1.id + 1 = l2.id AND l1.num = l2.num
+JOIN Logs l3 ON l2.id + 1 = l3.id AND l2.num = l3.num;
+```
+
+## Penjelasan
+
+Soal ini meminta kita untuk menemukan angka yang muncul **minimal 3 kali berturut-turut** (consecutive).
+
+**Consecutive** berarti:
+- Angka yang sama muncul di baris dengan `id` berurutan
+- Contoh: `id = 1, 2, 3` dengan `num` yang sama
+
+### Strategi: Triple Self-Join
+
+Kita akan menggunakan **3 self-join** untuk memeriksa 3 baris berturut-turut:
+
+- `l1`: Baris pertama
+- `l2`: Baris kedua (id = l1.id + 1)
+- `l3`: Baris ketiga (id = l2.id + 1 = l1.id + 2)
+
+Mari kita breakdown query-nya step by step:
+
+### Langkah 1: Join l1 dengan l2 (2 Baris Berturut-turut)
+
+```sql
+FROM Logs l1
+JOIN Logs l2 ON l1.id + 1 = l2.id AND l1.num = l2.num
+```
+
+**Kondisi JOIN**:
+1. `l1.id + 1 = l2.id`: `l2` harus tepat setelah `l1` (consecutive)
+2. `l1.num = l2.num`: `num` harus sama
+
+**Data Logs**:
+
+```
++----+-----+
+| id | num |
++----+-----+
+| 1  | 1   |
+| 2  | 1   |
+| 3  | 1   |
+| 4  | 2   |
+| 5  | 1   |
+| 6  | 2   |
+| 7  | 2   |
++----+-----+
+```
+
+**Setelah JOIN l1 dan l2**:
+
+```
+l1                    l2
++----+-----+         +----+-----+
+| id | num |         | id | num |
++----+-----+         +----+-----+
+| 1  | 1   |    →    | 2  | 1   | ✓ (id consecutive & num sama)
+| 2  | 1   |    →    | 3  | 1   | ✓
+| 3  | 1   |    ✗    | 4  | 2   | ✗ (num beda: 1 ≠ 2)
+| 4  | 2   |    ✗    | 5  | 1   | ✗ (num beda: 2 ≠ 1)
+| 5  | 1   |    ✗    | 6  | 2   | ✗ (num beda: 1 ≠ 2)
+| 6  | 2   |    →    | 7  | 2   | ✓
++----+-----+         +----+-----+
+```
+
+Hasil setelah JOIN l1-l2:
+
+```
++-------+-------+-------+-------+
+| l1.id | l1.num| l2.id | l2.num|
++-------+-------+-------+-------+
+| 1     | 1     | 2     | 1     |
+| 2     | 1     | 3     | 1     |
+| 6     | 2     | 7     | 2     |
++-------+-------+-------+-------+
+```
+
+### Langkah 2: Join dengan l3 (3 Baris Berturut-turut)
+
+```sql
+JOIN Logs l3 ON l2.id + 1 = l3.id AND l2.num = l3.num
+```
+
+Sekarang kita cari `l3` yang:
+1. `l2.id + 1 = l3.id`: `l3` tepat setelah `l2`
+2. `l2.num = l3.num`: `num` harus sama dengan `l2`
+
+**Dari hasil JOIN l1-l2, coba JOIN dengan l3**:
+
+```
+l1-l2                            l3
++-------+-------+-------+-------+    +----+-----+
+| l1.id | l1.num| l2.id | l2.num|    | id | num |
++-------+-------+-------+-------+    +----+-----+
+| 1     | 1     | 2     | 1     | →  | 3  | 1   | ✓ (id: 2+1=3, num sama)
+| 2     | 1     | 3     | 1     | ✗  | 4  | 2   | ✗ (id: 3+1=4, tapi num beda)
+| 6     | 2     | 7     | 2     | ✗  (tidak ada id 8)
++-------+-------+-------+-------+    +----+-----+
+```
+
+Hasil setelah JOIN l1-l2-l3:
+
+```
++-------+-------+-------+-------+-------+-------+
+| l1.id | l1.num| l2.id | l2.num| l3.id | l3.num|
++-------+-------+-------+-------+-------+-------+
+| 1     | 1     | 2     | 1     | 3     | 1     |
++-------+-------+-------+-------+-------+-------+
+```
+
+Hanya ada 1 baris yang memenuhi kriteria: **num = 1** muncul di `id = 1, 2, 3` (3 kali berturut-turut).
+
+### Langkah 3: SELECT DISTINCT
+
+```sql
+SELECT DISTINCT
+    l1.num AS ConsecutiveNums
+```
+
+Ambil `l1.num` (bisa juga `l2.num` atau `l3.num`, karena semuanya sama).
+
+**DISTINCT** digunakan untuk menghilangkan duplikat, jika ada angka yang muncul lebih dari 3 kali berturut-turut.
+
+**Contoh kenapa perlu DISTINCT**:
+
+Jika ada data:
+
+```
++----+-----+
+| id | num |
++----+-----+
+| 1  | 1   |
+| 2  | 1   |
+| 3  | 1   |
+| 4  | 1   | ← 4 kali berturut-turut
++----+-----+
+```
+
+Tanpa DISTINCT:
+
+```
++-----------------+
+| ConsecutiveNums |
++-----------------+
+| 1               | ← dari (1,2,3)
+| 1               | ← dari (2,3,4)
++-----------------+
+```
+
+Dengan DISTINCT:
+
+```
++-----------------+
+| ConsecutiveNums |
++-----------------+
+| 1               |
++-----------------+
+```
+
+Hasil akhir:
+
+```
++-----------------+
+| ConsecutiveNums |
++-----------------+
+| 1               |
++-----------------+
+```
+
+### Visualisasi Lengkap
+
+```
+Logs Table:
+id: 1  2  3  4  5  6  7
+num: 1  1  1  2  1  2  2
+
+Cari 3 consecutive:
+[1][1][1] ✓ → num = 1 appears 3 times consecutively
+   [1][1][2] ✗ → num berbeda
+      [1][2][1] ✗ → num berbeda
+         [2][1][2] ✗ → num berbeda
+            [1][2][2] ✗ → num berbeda
+               [2][2] → hanya 2, kurang dari 3
+
+Hasil: num = 1
+```
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `JOIN`: Menggabungkan dua tabel berdasarkan kondisi tertentu.
+- Self-Join: Join tabel dengan dirinya sendiri menggunakan alias berbeda.
+- Multiple Joins: Menggunakan lebih dari 1 JOIN dalam satu query.
+- `ON`: Menentukan kondisi untuk menggabungkan baris dari kedua tabel.
+- `AND`: Operator logika untuk menggabungkan beberapa kondisi.
+- `DISTINCT`: Menghilangkan duplikat dari hasil query.
+- `AS`: Memberi alias untuk kolom hasil query.
+- Consecutive: Berturut-turut tanpa jeda (id berurutan).
+- Arithmetic in JOIN: Menggunakan operasi matematika (`+`, `-`) dalam kondisi JOIN.
+- [Memahami 4 Jenis JOIN](../../basic/02-01-4-joins)
