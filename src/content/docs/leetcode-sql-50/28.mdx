@@ -1,0 +1,349 @@
+---
+title: Biggest Single Number
+description: Biggest Single Number
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Sorting and Grouping" variant="note" />
+
+Temukan angka terbesar yang hanya muncul sekali menggunakan `GROUP BY`, `HAVING`, `ORDER BY`, `LIMIT`, dan subquery.
+
+https://leetcode.com/problems/biggest-single-number
+
+## Soal
+
+> Table: `MyNumbers`
+>
+> ```
+> +-------------+------+
+> | Column Name | Type |
+> +-------------+------+
+> | num         | int  |
+> +-------------+------+
+> ```
+>
+> This table may contain duplicates (In other words, there is no primary key for this table in SQL).
+>
+> Each row of this table contains an integer.
+
+A **single number** is a number that appeared only once in the MyNumbers table.
+
+Find the largest single number. If there is no single number, report `null`.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `MyNumbers` table:
+>
+> ```
+> +-----+
+> | num |
+> +-----+
+> | 8   |
+> | 8   |
+> | 3   |
+> | 3   |
+> | 1   |
+> | 4   |
+> | 5   |
+> | 6   |
+> +-----+
+> ```
+>
+> Output:
+>
+> ```
+> +-----+
+> | num |
+> +-----+
+> | 6   |
+> +-----+
+> ```
+>
+> **Explanation:**
+>
+> The single numbers are 1, 4, 5, and 6. Since 6 is the largest single number, we return it.
+
+> **Example 2:**
+>
+> Input:
+>
+> `MyNumbers` table:
+>
+> ```
+> +-----+
+> | num |
+> +-----+
+> | 8   |
+> | 8   |
+> | 7   |
+> | 7   |
+> | 3   |
+> | 3   |
+> | 3   |
+> +-----+
+> ```
+>
+> Output:
+>
+> ```
+> +------+
+> | num  |
+> +------+
+> | null |
+> +------+
+> ```
+>
+> **Explanation:**
+>
+> There are no single numbers in the input table so we return null.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE MyNumbers (
+    num INT
+);
+
+-- Example 1
+INSERT INTO MyNumbers (num) VALUES
+    (8), (8), (3), (3), (1), (4), (5), (6);
+
+-- Untuk test Example 2, hapus data dan insert data baru:
+-- DELETE FROM MyNumbers;
+-- INSERT INTO MyNumbers (num) VALUES
+--     (8), (8), (7), (7), (3), (3), (3);
+```
+
+## Jawaban SQL
+
+```sql "Subquery" "HAVING COUNT(*) = 1" "LIMIT 1"
+SELECT (
+    SELECT num
+    FROM MyNumbers
+    GROUP BY num
+    HAVING COUNT(*) = 1
+    ORDER BY num DESC
+    LIMIT 1
+) AS num;
+```
+
+## Penjelasan
+
+Soal ini meminta kita untuk menemukan **angka terbesar yang hanya muncul sekali** (single number). Jika tidak ada single number, return `null`.
+
+Query ini terdiri dari 2 bagian: **subquery di dalam** dan **SELECT di luar**.
+
+### Langkah 1: Subquery - Temukan Single Numbers dan Ambil yang Terbesar
+
+```sql
+SELECT num
+FROM MyNumbers
+GROUP BY num
+HAVING COUNT(*) = 1
+ORDER BY num DESC
+LIMIT 1
+```
+
+Mari kita breakdown subquery ini dengan Example 1:
+
+**Data Awal**:
+
+```
++-----+
+| num |
++-----+
+| 8   |
+| 8   |
+| 3   |
+| 3   |
+| 1   |
+| 4   |
+| 5   |
+| 6   |
++-----+
+```
+
+**Setelah GROUP BY num**:
+
+```
++-----+-------+
+| num | count |
++-----+-------+
+| 1   | 1     | ← Single number
+| 3   | 2     |
+| 4   | 1     | ← Single number
+| 5   | 1     | ← Single number
+| 6   | 1     | ← Single number
+| 8   | 2     |
++-----+-------+
+```
+
+**Setelah HAVING COUNT(\*) = 1** (filter hanya single numbers):
+
+```
++-----+
+| num |
++-----+
+| 1   |
+| 4   |
+| 5   |
+| 6   |
++-----+
+```
+
+**Setelah ORDER BY num DESC** (urutkan dari besar ke kecil):
+
+```
++-----+
+| num |
++-----+
+| 6   | ← Terbesar
+| 5   |
+| 4   |
+| 1   |
++-----+
+```
+
+**Setelah LIMIT 1** (ambil hanya 1 baris teratas):
+
+```
++-----+
+| num |
++-----+
+| 6   |
++-----+
+```
+
+Jadi subquery mengembalikan **6** (single number terbesar).
+
+### Langkah 2: SELECT Luar - Handle Kasus NULL
+
+```sql
+SELECT (
+    -- subquery di sini
+) AS num;
+```
+
+**Kenapa Perlu SELECT Luar?**
+
+Subquery bisa mengembalikan 2 kemungkinan:
+1. **Ada single number**: Subquery mengembalikan 1 baris dengan nilai angka
+2. **Tidak ada single number**: Subquery mengembalikan **0 baris** (empty result)
+
+Masalahnya: Jika subquery mengembalikan 0 baris, hasil query akan menjadi **empty table** (tidak ada baris sama sekali), bukan tabel dengan 1 baris berisi `null`.
+
+**Contoh tanpa SELECT luar** (❌ Salah):
+
+```sql
+-- Jika tidak ada single number
+SELECT num
+FROM MyNumbers
+GROUP BY num
+HAVING COUNT(*) = 1
+ORDER BY num DESC
+LIMIT 1;
+
+-- Hasil: Empty table (0 baris)
+-- Output: (kosong, tidak ada baris)
+```
+
+Tapi soal meminta kita return `null` jika tidak ada single number:
+
+```
++------+
+| num  |
++------+
+| null |
++------+
+```
+
+**Dengan SELECT luar** (✓ Benar):
+
+```sql
+SELECT (
+    SELECT num
+    FROM MyNumbers
+    GROUP BY num
+    HAVING COUNT(*) = 1
+    ORDER BY num DESC
+    LIMIT 1
+) AS num;
+
+-- Jika subquery return 0 baris, SELECT luar akan return NULL
+-- Output: 1 baris dengan nilai NULL
+```
+
+SELECT luar mengubah subquery menjadi **scalar subquery** (subquery yang mengembalikan 1 nilai atau NULL).
+
+**Cara Kerja Scalar Subquery**:
+- Jika subquery return 1 baris → Ambil nilai dari baris tersebut
+- Jika subquery return 0 baris → Return `NULL`
+- Jika subquery return lebih dari 1 baris → Error (tapi tidak mungkin karena ada `LIMIT 1`)
+
+### Contoh dengan Example 2 (Tidak Ada Single Number)
+
+**Data**:
+
+```
++-----+
+| num |
++-----+
+| 8   |
+| 8   |
+| 7   |
+| 7   |
+| 3   |
+| 3   |
+| 3   |
++-----+
+```
+
+**Setelah GROUP BY dan HAVING**:
+
+```
++-----+-------+
+| num | count |
++-----+-------+
+| 3   | 3     | ✗
+| 7   | 2     | ✗
+| 8   | 2     | ✗
++-----+-------+
+```
+
+Tidak ada angka dengan count = 1, jadi setelah `HAVING COUNT(*) = 1`, hasilnya **0 baris**.
+
+**Subquery return**: 0 baris (empty)
+
+**SELECT luar convert ke**: `NULL`
+
+Hasil akhir:
+
+```
++------+
+| num  |
++------+
+| null |
++------+
+```
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `GROUP BY`: Mengelompokkan baris berdasarkan nilai kolom tertentu.
+- `HAVING`: Memfilter grup berdasarkan kondisi agregat.
+- `COUNT()`: Menghitung jumlah baris dalam setiap grup.
+- `ORDER BY ... DESC`: Mengurutkan dari besar ke kecil (descending).
+- `LIMIT`: Membatasi jumlah baris yang dikembalikan.
+- Subquery: Query di dalam query lain.
+- Scalar Subquery: Subquery yang mengembalikan 1 nilai atau NULL (digunakan sebagai expression).
+- `AS`: Memberi alias untuk kolom hasil query.
+- `NULL`: Nilai khusus yang merepresentasikan "tidak ada nilai" atau "unknown".
