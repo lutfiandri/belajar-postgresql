@@ -1,0 +1,192 @@
+---
+title: Find Followers Count
+description: Find Followers Count
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Sorting and Grouping" variant="note" />
+
+Hitung jumlah followers untuk setiap user menggunakan `GROUP BY`, `COUNT()`, dan `ORDER BY`.
+
+https://leetcode.com/problems/find-followers-count
+
+## Soal
+
+> Table: `Followers`
+>
+> ```
+> +-------------+------+
+> | Column Name | Type |
+> +-------------+------+
+> | user_id     | int  |
+> | follower_id | int  |
+> +-------------+------+
+> ```
+>
+> (`user_id`, `follower_id`) is the primary key (combination of columns with unique values) for this table.
+>
+> This table contains the IDs of a user and a follower in a social media app where the follower follows the user.
+
+Write a solution that will, for each user, return the number of followers.
+
+Return the result table ordered by `user_id` in ascending order.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Followers` table:
+>
+> ```
+> +---------+-------------+
+> | user_id | follower_id |
+> +---------+-------------+
+> | 0       | 1           |
+> | 1       | 0           |
+> | 2       | 0           |
+> | 2       | 1           |
+> +---------+-------------+
+> ```
+>
+> Output:
+>
+> ```
+> +---------+----------------+
+> | user_id | followers_count|
+> +---------+----------------+
+> | 0       | 1              |
+> | 1       | 1              |
+> | 2       | 2              |
+> +---------+----------------+
+> ```
+>
+> **Explanation:**
+>
+> - The followers of 0 are {1}
+> - The followers of 1 are {0}
+> - The followers of 2 are {0,1}
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Followers (
+    user_id INT,
+    follower_id INT,
+    PRIMARY KEY (user_id, follower_id)
+);
+
+INSERT INTO Followers (user_id, follower_id) VALUES
+    (0, 1),
+    (1, 0),
+    (2, 0),
+    (2, 1);
+```
+
+## Jawaban SQL
+
+```sql "GROUP BY" "ORDER BY" "COUNT(*)"
+SELECT
+    user_id,
+    COUNT(*) AS followers_count
+FROM Followers
+GROUP BY user_id
+ORDER BY user_id ASC;
+```
+
+## Penjelasan
+
+Soal ini meminta kita untuk menghitung jumlah **followers** setiap user, lalu mengurutkan hasil berdasarkan `user_id`.
+
+Mari kita breakdown query-nya step by step:
+
+1. **FROM Followers**: Ambil data dari tabel `Followers`.
+
+   Isi tabel `Followers`:
+
+   ```
+   +---------+-------------+
+   | user_id | follower_id |
+   +---------+-------------+
+   | 0       | 1           | ← User 0 di-follow oleh user 1
+   | 1       | 0           | ← User 1 di-follow oleh user 0
+   | 2       | 0           | ← User 2 di-follow oleh user 0
+   | 2       | 1           | ← User 2 di-follow oleh user 1
+   +---------+-------------+
+   ```
+
+   Setiap baris merepresentasikan relasi "follower follows user":
+   - Baris 1: User 1 follow user 0
+   - Baris 2: User 0 follow user 1
+   - Baris 3: User 0 follow user 2
+   - Baris 4: User 1 follow user 2
+
+2. **GROUP BY user_id**: Kelompokkan data berdasarkan `user_id`.
+
+   Setelah dikelompokkan:
+   - User 0: [follower_id: 1] → 1 follower
+   - User 1: [follower_id: 0] → 1 follower
+   - User 2: [follower_id: 0, 1] → 2 followers
+
+3. **COUNT(\*)**: Hitung jumlah baris (followers) untuk setiap user.
+
+   ```
+   +---------+-----------------+
+   | user_id | followers_count |
+   +---------+-----------------+
+   | 0       | 1               |
+   | 1       | 1               |
+   | 2       | 2               |
+   +---------+-----------------+
+   ```
+
+4. **ORDER BY user_id ASC**: Urutkan hasil berdasarkan `user_id` dari kecil ke besar.
+
+   Hasil sudah terurut (kebetulan), tapi `ORDER BY` memastikan hasilnya selalu terurut sesuai requirement.
+
+Hasil akhir:
+
+```
++---------+----------------+
+| user_id | followers_count|
++---------+----------------+
+| 0       | 1              |
+| 1       | 1              |
+| 2       | 2              |
++---------+----------------+
+```
+
+### Kenapa Pakai COUNT(\*)?
+
+Karena kita hanya perlu menghitung jumlah baris di setiap grup, `COUNT(*)` adalah pilihan yang tepat.
+
+Alternatif lain yang juga benar:
+- `COUNT(follower_id)` → Menghitung jumlah `follower_id` yang tidak NULL
+- `COUNT(1)` → Menghitung jumlah baris (sama dengan `COUNT(*)`)
+
+Tapi `COUNT(*)` adalah yang paling umum dan jelas: "hitung semua baris".
+
+### Pentingnya ORDER BY
+
+Meskipun hasil query kita kebetulan sudah terurut, **kita tetap harus menulis `ORDER BY`** jika soal meminta hasil yang terurut.
+
+Kenapa? Karena **SQL tidak menjamin urutan hasil tanpa `ORDER BY`**. Database bisa mengembalikan hasil dalam urutan apapun jika tidak ada `ORDER BY`.
+
+Jadi, meskipun hasilnya terlihat terurut, tanpa `ORDER BY` urutan tersebut bisa berubah kapan saja (misalnya setelah database di-restart, data di-update, dll).
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `GROUP BY`: Mengelompokkan baris berdasarkan nilai kolom tertentu.
+- `COUNT()`: Menghitung jumlah baris dalam setiap grup.
+- `COUNT(*)`: Menghitung semua baris (termasuk yang punya nilai NULL).
+- `ORDER BY`: Mengurutkan hasil berdasarkan kolom tertentu.
+- `ORDER BY ... ASC`: Mengurutkan dari kecil ke besar (ascending).
+- `AS`: Memberi alias untuk kolom hasil query.
+- Primary Key Komposit: Primary key yang terdiri dari kombinasi beberapa kolom.
