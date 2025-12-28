@@ -1,0 +1,169 @@
+---
+title: Employees Whose Manager Left the Company
+description: Employees Whose Manager Left the Company
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Subquery" variant="note" />
+
+Temukan employee dengan gaji < $30000 yang managernya sudah tidak ada di company menggunakan `NOT IN` dengan subquery.
+
+https://leetcode.com/problems/employees-whose-manager-left-the-company
+
+## Soal
+
+> Table: `Employees`
+>
+> ```
+> +-------------+----------+
+> | Column Name | Type     |
+> +-------------+----------+
+> | employee_id | int      |
+> | name        | varchar  |
+> | manager_id  | int      |
+> | salary      | int      |
+> +-------------+----------+
+> ```
+>
+> In SQL, `employee_id` is the primary key for this table.
+>
+> This table contains information about the employees, their salary, and the ID of their manager. Some employees do not have a manager (`manager_id` is null).
+
+Find the IDs of the employees whose salary is strictly less than $30000 and whose manager left the company. When a manager leaves the company, their information is deleted from the Employees table, but the reports still have their `manager_id` set to the manager that left.
+
+Return the result table ordered by `employee_id`.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Employees` table:
+>
+> ```
+> +-------------+-----------+------------+--------+
+> | employee_id | name      | manager_id | salary |
+> +-------------+-----------+------------+--------+
+> | 3           | Mila      | 9          | 60301  |
+> | 12          | Antonella | null       | 31000  |
+> | 13          | Emery     | null       | 67084  |
+> | 1           | Kalel     | 11         | 21241  |
+> | 9           | Mikaela   | null       | 50937  |
+> | 11          | Joziah    | 6          | 28485  |
+> +-------------+-----------+------------+--------+
+> ```
+>
+> Output:
+>
+> ```
+> +-------------+
+> | employee_id |
+> +-------------+
+> | 11          |
+> +-------------+
+> ```
+>
+> **Explanation:**
+>
+> The employees with a salary less than $30000 are 1 (Kalel) and 11 (Joziah).
+>
+> - Kalel's manager is employee 11, who is still in the company (Joziah).
+> - Joziah's manager is employee 6, who left the company because there is no row for employee 6 as it was deleted.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Employees (
+    employee_id INT PRIMARY KEY,
+    name VARCHAR(100),
+    manager_id INT,
+    salary INT
+);
+
+INSERT INTO Employees (employee_id, name, manager_id, salary) VALUES
+    (3, 'Mila', 9, 60301),
+    (12, 'Antonella', NULL, 31000),
+    (13, 'Emery', NULL, 67084),
+    (1, 'Kalel', 11, 21241),
+    (9, 'Mikaela', NULL, 50937),
+    (11, 'Joziah', 6, 28485);
+```
+
+## Jawaban SQL
+
+```sql "NOT IN"
+SELECT employee_id
+FROM Employees
+WHERE salary < 30000
+    AND manager_id NOT IN (
+        SELECT employee_id FROM Employees
+    )
+ORDER BY employee_id;
+```
+
+## Penjelasan
+
+Soal ini meminta kita mencari employee dengan 2 kondisi:
+1. Gaji < $30000
+2. Manager-nya sudah tidak ada di company (manager left)
+
+### Langkah 1: Filter Gaji < $30000
+
+```sql
+WHERE salary < 30000
+```
+
+**Employee dengan gaji < $30000**:
+
+```
++-------------+--------+------------+--------+
+| employee_id | name   | manager_id | salary |
++-------------+--------+------------+--------+
+| 1           | Kalel  | 11         | 21241  |
+| 11          | Joziah | 6          | 28485  |
++-------------+--------+------------+--------+
+```
+
+### Langkah 2: Cek Manager Sudah Tidak Ada dengan NOT IN
+
+```sql
+AND manager_id NOT IN (
+    SELECT employee_id FROM Employees
+)
+```
+
+**Subquery**: Ambil semua `employee_id` yang ada di tabel `Employees`.
+
+```sql
+SELECT employee_id FROM Employees
+```
+
+Hasilnya: `[3, 12, 13, 1, 9, 11]`
+
+**NOT IN**: Filter employee yang `manager_id` **tidak ada** di list tersebut, yang mana hanya ada `manager_id = 6`.
+
+Hasil akhir:
+
+```
++-------------+
+| employee_id |
++-------------+
+| 11          |
++-------------+
+```
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `WHERE`: Memfilter baris berdasarkan kondisi.
+- `AND`: Operator logika untuk menggabungkan beberapa kondisi.
+- `NOT IN`: Filter baris yang nilainya tidak ada dalam subquery/list.
+- Subquery: Query di dalam query lain.
+- `ORDER BY`: Mengurutkan hasil berdasarkan kolom tertentu.
+- Comparison Operators: `<` (kurang dari).
