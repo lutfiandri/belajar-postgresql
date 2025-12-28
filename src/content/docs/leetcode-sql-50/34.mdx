@@ -1,0 +1,345 @@
+---
+title: Product Price at a Given Date
+description: Product Price at a Given Date
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Medium" variant="note" />
+<Badge text="Advanced Select and Joins" variant="note" />
+
+Temukan harga produk pada tanggal tertentu dengan harga default untuk produk yang belum ada perubahan harga, menggunakan CTE, `DISTINCT ON`, `UNION`, dan `NOT IN`.
+
+https://leetcode.com/problems/product-price-at-a-given-date
+
+## Soal
+
+> Table: `Products`
+>
+> ```
+> +---------------+---------+
+> | Column Name   | Type    |
+> +---------------+---------+
+> | product_id    | int     |
+> | new_price     | int     |
+> | change_date   | date    |
+> +---------------+---------+
+> ```
+>
+> (`product_id`, `change_date`) is the primary key (combination of columns with unique values) of this table.
+>
+> Each row of this table indicates that the price of some product was changed to a new price at some date.
+
+**Initially, all products have price 10.**
+
+Write a solution to find the prices of all products on the date **2019-08-16**.
+
+Return the result table in any order.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Products` table:
+>
+> ```
+> +------------+-----------+-------------+
+> | product_id | new_price | change_date |
+> +------------+-----------+-------------+
+> | 1          | 20        | 2019-08-14  |
+> | 2          | 50        | 2019-08-14  |
+> | 1          | 30        | 2019-08-15  |
+> | 1          | 35        | 2019-08-16  |
+> | 2          | 65        | 2019-08-17  |
+> | 3          | 20        | 2019-08-18  |
+> +------------+-----------+-------------+
+> ```
+>
+> Output:
+>
+> ```
+> +------------+-------+
+> | product_id | price |
+> +------------+-------+
+> | 2          | 50    |
+> | 1          | 35    |
+> | 3          | 10    |
+> +------------+-------+
+> ```
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Products (
+    product_id INT,
+    new_price INT,
+    change_date DATE,
+    PRIMARY KEY (product_id, change_date)
+);
+
+INSERT INTO Products (product_id, new_price, change_date) VALUES
+    (1, 20, '2019-08-14'),
+    (2, 50, '2019-08-14'),
+    (1, 30, '2019-08-15'),
+    (1, 35, '2019-08-16'),
+    (2, 65, '2019-08-17'),
+    (3, 20, '2019-08-18');
+```
+
+## Jawaban SQL
+
+```sql "NOT IN" "UNION"
+WITH products_last_date AS (
+    SELECT DISTINCT ON (product_id)
+        product_id,
+        new_price AS price
+    FROM Products
+    WHERE change_date <= '2019-08-16'
+    ORDER BY product_id, change_date DESC
+),
+
+products_unlisted AS (
+    SELECT
+        product_id,
+        10 AS price
+    FROM Products
+    WHERE product_id NOT IN (
+        SELECT product_id FROM products_last_date
+    )
+)
+
+SELECT * FROM products_last_date
+UNION
+SELECT * FROM products_unlisted;
+```
+
+## Penjelasan
+
+Soal ini meminta kita untuk menemukan harga semua produk pada tanggal **2019-08-16** dengan 2 kondisi:
+
+1. **Produk yang sudah ada perubahan harga sebelum/pada 2019-08-16**: Ambil harga terakhir sebelum/pada tanggal tersebut
+2. **Produk yang belum ada perubahan harga sampai 2019-08-16**: Gunakan harga default **10**
+
+:::note[Kenapa Pakai CTE?]
+Query ini bisa ditulis tanpa CTE dengan nested subquery, tapi akan sangat sulit dibaca:
+
+```sql
+-- Tanpa CTE (sulit dibaca)
+SELECT * FROM (
+    SELECT DISTINCT ON (product_id)
+        product_id, new_price AS price
+    FROM Products
+    WHERE change_date <= '2019-08-16'
+    ORDER BY product_id, change_date DESC
+)
+UNION
+SELECT product_id, 10 AS price
+FROM Products
+WHERE product_id NOT IN (
+    SELECT product_id FROM (
+        SELECT DISTINCT ON (product_id) product_id
+        FROM Products
+        WHERE change_date <= '2019-08-16'
+        ORDER BY product_id, change_date DESC
+    )
+);
+```
+
+Dengan CTE, kita memecah query kompleks menjadi bagian-bagian kecil yang punya **nama yang jelas** dan **mudah dipahami**:
+- `products_last_date`: Produk dengan harga terakhir sebelum/pada target date
+- `products_unlisted`: Produk yang belum ada di list (belum ada perubahan harga)
+
+Ini seperti membuat fungsi helper dalam programming untuk membuat kode lebih modular dan maintainable!
+:::
+
+Mari kita breakdown query-nya step by step:
+
+### Langkah 1: CTE 1 - Produk dengan Harga Terakhir (≤ 2019-08-16)
+
+```sql
+WITH products_last_date AS (
+    SELECT DISTINCT ON (product_id)
+        product_id,
+        new_price AS price
+    FROM Products
+    WHERE change_date <= '2019-08-16'
+    ORDER BY product_id, change_date DESC
+)
+```
+
+**WHERE change_date \<= '2019-08-16'**: Filter hanya perubahan harga sampai dengan 2019-08-16.
+
+**Data Products yang di-filter**:
+
+```
++------------+-----------+-------------+
+| product_id | new_price | change_date |
++------------+-----------+-------------+
+| 1          | 20        | 2019-08-14  | ✓
+| 2          | 50        | 2019-08-14  | ✓
+| 1          | 30        | 2019-08-15  | ✓
+| 1          | 35        | 2019-08-16  | ✓ (tepat di target date)
+| 2          | 65        | 2019-08-17  | ✗ (setelah target date)
+| 3          | 20        | 2019-08-18  | ✗ (setelah target date)
++------------+-----------+-------------+
+```
+
+**ORDER BY product_id, change_date DESC**: Urutkan berdasarkan product_id, lalu change_date dari besar ke kecil (terbaru ke terlama).
+
+```
++------------+-----------+-------------+
+| product_id | new_price | change_date |
++------------+-----------+-------------+
+| 1          | 35        | 2019-08-16  | ← Terbaru untuk product 1
+| 1          | 30        | 2019-08-15  |
+| 1          | 20        | 2019-08-14  |
+| 2          | 50        | 2019-08-14  | ← Hanya 1 untuk product 2
++------------+-----------+-------------+
+```
+
+**DISTINCT ON (product_id)**: Ambil hanya baris pertama untuk setiap product (yang terbaru).
+
+**Hasil CTE `products_last_date`**:
+
+```
++------------+-------+
+| product_id | price |
++------------+-------+
+| 1          | 35    | ← Harga terakhir product 1 pada/sebelum 2019-08-16
+| 2          | 50    | ← Harga terakhir product 2 pada/sebelum 2019-08-16
++------------+-------+
+```
+
+Penjelasan per produk:
+- **Product 1**: Ada 3 perubahan harga (14, 15, 16 Agustus). Yang terakhir pada 2019-08-16 adalah **35**
+- **Product 2**: Ada 1 perubahan harga (14 Agustus) sebelum target date. Harga pada 17 Agustus tidak dihitung karena setelah target date. Harga pada 2019-08-16 adalah **50**
+- **Product 3**: Tidak ada di hasil karena perubahan harganya (18 Agustus) setelah target date
+
+### Langkah 2: CTE 2 - Produk yang Belum Ada Perubahan Harga
+
+```sql
+products_unlisted AS (
+    SELECT
+        product_id,
+        10 AS price
+    FROM Products
+    WHERE product_id NOT IN (
+        SELECT product_id FROM products_last_date
+    )
+)
+```
+
+**NOT IN**: Ambil product_id yang **tidak ada** di `products_last_date`.
+
+**Produk di products_last_date**: [1, 2]
+
+**Semua produk unique di Products**: [1, 2, 3]
+
+**Produk yang NOT IN products_last_date**: [3]
+
+**Hasil CTE `products_unlisted`**:
+
+```
++------------+-------+
+| product_id | price |
++------------+-------+
+| 3          | 10    | ← Harga default
++------------+-------+
+```
+
+**Product 3** belum ada perubahan harga sampai 2019-08-16 (perubahan pertamanya di 2019-08-18), jadi gunakan harga default **10**.
+
+### Langkah 3: UNION - Gabungkan Kedua Hasil
+
+```sql
+SELECT * FROM products_last_date
+UNION
+SELECT * FROM products_unlisted;
+```
+
+**UNION** menggabungkan hasil dari kedua CTE:
+
+```
+products_last_date         UNION         products_unlisted
++------------+-------+                   +------------+-------+
+| product_id | price |                   | product_id | price |
++------------+-------+                   +------------+-------+
+| 1          | 35    |                   | 3          | 10    |
+| 2          | 50    |                   +------------+-------+
++------------+-------+
+```
+
+Hasil akhir:
+
+```
++------------+-------+
+| product_id | price |
++------------+-------+
+| 1          | 35    |
+| 2          | 50    |
+| 3          | 10    |
++------------+-------+
+```
+
+### Timeline Perubahan Harga
+
+Mari kita visualisasikan perubahan harga setiap produk:
+
+```
+Timeline:
+         Aug 14      Aug 15      Aug 16      Aug 17      Aug 18
+         ------      ------      ------      ------      ------
+Product 1:  20    →    30    →    35
+Product 2:  50
+Product 3:                                               20
+
+Target Date: 2019-08-16
+                         ↑ Kita ingin tahu harga di sini
+
+Hasil:
+- Product 1: 35 (terakhir update di Aug 16)
+- Product 2: 50 (terakhir update di Aug 14, belum berubah sampai Aug 16)
+- Product 3: 10 (default, karena update pertama di Aug 18, setelah target date)
+```
+
+### Kenapa Pakai DISTINCT ON?
+
+`DISTINCT ON` sangat cocok untuk kasus "ambil 1 baris terbaru/terlama per grup" seperti ini.
+
+Alternatif lain (tanpa DISTINCT ON):
+
+```sql
+-- Menggunakan ROW_NUMBER (lebih verbose)
+WITH ranked AS (
+    SELECT
+        product_id,
+        new_price,
+        ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY change_date DESC) AS rn
+    FROM Products
+    WHERE change_date <= '2019-08-16'
+)
+SELECT product_id, new_price AS price
+FROM ranked
+WHERE rn = 1;
+```
+
+Tapi `DISTINCT ON` lebih ringkas dan jelas untuk kasus ini!
+
+## Referensi
+
+- `WITH ... AS (...)`: Membuat CTE (Common Table Expression) sebagai tabel sementara.
+- Multiple CTE: Gunakan koma untuk membuat beberapa CTE dalam 1 query.
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `WHERE`: Memfilter baris berdasarkan kondisi.
+- `DISTINCT ON (column)`: Mengambil 1 baris unik pertama untuk setiap nilai kolom tertentu (PostgreSQL specific).
+- `ORDER BY ... DESC`: Mengurutkan dari besar ke kecil (descending).
+- `NOT IN`: Filter baris yang nilainya tidak ada dalam subquery/list.
+- `UNION`: Menggabungkan hasil dari 2+ query dan menghilangkan duplikat.
+- `AS`: Memberi alias untuk kolom hasil query.
+- Date Comparison: `<=` (kurang dari atau sama dengan) untuk filter tanggal.
+- [Tipe Data Tanggal dan Waktu](../../basic/01-03-date-time-types)
