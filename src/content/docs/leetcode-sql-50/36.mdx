@@ -1,0 +1,216 @@
+---
+title: Count Salary Categories
+description: Count Salary Categories
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Medium" variant="note" />
+<Badge text="Advanced Select and Joins" variant="note" />
+
+Hitung jumlah akun per kategori gaji menggunakan `CASE WHEN` untuk kategorisasi, `SUM()` untuk counting, dan `UNION` untuk menggabungkan hasil.
+
+https://leetcode.com/problems/count-salary-categories
+
+## Soal
+
+> Table: `Accounts`
+>
+> ```
+> +-------------+------+
+> | Column Name | Type |
+> +-------------+------+
+> | account_id  | int  |
+> | income      | int  |
+> +-------------+------+
+> ```
+>
+> `account_id` is the primary key (column with unique values) for this table.
+>
+> Each row contains information about the monthly income for one bank account.
+
+Write a solution to calculate the number of bank accounts for each salary category. The salary categories are:
+
+- **"Low Salary"**: All the salaries strictly less than $20000.
+- **"Average Salary"**: All the salaries in the inclusive range [$20000, $50000].
+- **"High Salary"**: All the salaries strictly greater than $50000.
+
+The result table **must contain all three categories**. If there are no accounts in a category, return 0.
+
+Return the result table in any order.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Accounts` table:
+>
+> ```
+> +------------+--------+
+> | account_id | income |
+> +------------+--------+
+> | 3          | 108939 |
+> | 2          | 12747  |
+> | 8          | 87709  |
+> | 6          | 91796  |
+> +------------+--------+
+> ```
+>
+> Output:
+>
+> ```
+> +----------------+----------------+
+> | category       | accounts_count |
+> +----------------+----------------+
+> | Low Salary     | 1              |
+> | Average Salary | 0              |
+> | High Salary    | 3              |
+> +----------------+----------------+
+> ```
+>
+> **Explanation:**
+>
+> - Low Salary: Account 2.
+> - Average Salary: No accounts.
+> - High Salary: Accounts 3, 6, and 8.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Accounts (
+    account_id INT PRIMARY KEY,
+    income INT
+);
+
+INSERT INTO Accounts (account_id, income) VALUES
+    (3, 108939),
+    (2, 12747),
+    (8, 87709),
+    (6, 91796);
+```
+
+## Jawaban SQL
+
+```sql "CASE WHEN" "SUM(high)" "UNION"
+WITH account_category AS (
+    SELECT
+        account_id,
+        income,
+        CASE WHEN income < 20000 THEN 1 ELSE 0 END AS low,
+        CASE WHEN income >= 20000 AND income <= 50000 THEN 1 ELSE 0 END AS average,
+        CASE WHEN income > 50000 THEN 1 ELSE 0 END AS high
+    FROM Accounts
+)
+SELECT
+    'Low Salary' AS category,
+    SUM(low) AS accounts_count
+FROM account_category
+
+UNION
+
+SELECT
+    'Average Salary' AS category,
+    SUM(average) AS accounts_count
+FROM account_category
+
+UNION
+
+SELECT
+    'High Salary' AS category,
+    SUM(high) AS accounts_count
+FROM account_category;
+```
+
+## Penjelasan
+
+Soal ini meminta kita menghitung jumlah akun per kategori gaji. **Challenge utama**: Semua 3 kategori harus muncul, bahkan jika count-nya 0.
+
+### Langkah 1: Buat Flag untuk Setiap Kategori
+
+```sql
+WITH account_category AS (
+    SELECT
+        account_id,
+        income,
+        CASE WHEN income < 20000 THEN 1 ELSE 0 END AS low,
+        CASE WHEN income >= 20000 AND income <= 50000 THEN 1 ELSE 0 END AS average,
+        CASE WHEN income > 50000 THEN 1 ELSE 0 END AS high
+    FROM Accounts
+)
+```
+
+Kita buat **flag** (1 atau 0) untuk setiap kategori. Setiap account akan punya nilai 1 di satu kategori, dan 0 di kategori lainnya.
+
+**Hasil CTE**:
+
+```
++------------+--------+-----+---------+------+
+| account_id | income | low | average | high |
++------------+--------+-----+---------+------+
+| 3          | 108939 | 0   | 0       | 1    |
+| 2          | 12747  | 1   | 0       | 0    |
+| 8          | 87709  | 0   | 0       | 1    |
+| 6          | 91796  | 0   | 0       | 1    |
++------------+--------+-----+---------+------+
+```
+
+### Langkah 2: Hitung dengan SUM dan Gabungkan dengan UNION
+
+```sql
+SELECT 'Low Salary' AS category, SUM(low) AS accounts_count
+FROM account_category
+UNION
+SELECT 'Average Salary' AS category, SUM(average) AS accounts_count
+FROM account_category
+UNION
+SELECT 'High Salary' AS category, SUM(high) AS accounts_count
+FROM account_category
+```
+
+Hasil akhir:
+
+```
++----------------+----------------+
+| category       | accounts_count |
++----------------+----------------+
+| Low Salary     | 1              |
+| Average Salary | 0              |
+| High Salary    | 3              |
++----------------+----------------+
+```
+
+### Kenapa Tidak Pakai GROUP BY?
+
+Kalau pakai `GROUP BY`, kategori yang kosong (Average Salary) akan hilang:
+
+```sql
+-- ❌ Average Salary tidak muncul
+SELECT
+    CASE
+        WHEN income < 20000 THEN 'Low Salary'
+        WHEN income <= 50000 THEN 'Average Salary'
+        ELSE 'High Salary'
+    END AS category,
+    COUNT(*) AS accounts_count
+FROM Accounts
+GROUP BY category;
+```
+
+Dengan **flag + UNION**, kita buat 3 query terpisah, jadi semua kategori pasti muncul!
+
+## Referensi
+
+- `WITH ... AS (...)`: Membuat CTE (Common Table Expression) sebagai tabel sementara.
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `CASE WHEN ... THEN ... ELSE ... END`: Conditional logic untuk mengembalikan nilai berdasarkan kondisi.
+- `SUM()`: Menjumlahkan nilai.
+- `UNION`: Menggabungkan hasil dari 2+ query dan menghilangkan duplikat.
+- `AS`: Memberi alias untuk kolom hasil query.
+- `AND`: Operator logika untuk menggabungkan beberapa kondisi.
+- Flag Pattern: Menggunakan 1/0 untuk menandai apakah baris memenuhi kondisi tertentu.
+- Comparison Operators: `<` (kurang dari), `<=` (kurang dari atau sama dengan), `>` (lebih besar dari), `>=` (lebih besar dari atau sama dengan).
