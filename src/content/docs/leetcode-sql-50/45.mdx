@@ -1,0 +1,226 @@
+---
+title: Patients With a Condition
+description: Patients With a Condition
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Advanced String Functions / Regex / Clause" variant="note" />
+
+Cari pasien yang punya kondisi yang dimulai dengan prefix tertentu menggunakan `LIKE` dengan pattern matching atau regex `~` dengan word boundary.
+
+https://leetcode.com/problems/patients-with-a-condition
+
+## Soal
+
+> Table: `Patients`
+>
+> ```
+> +--------------+---------+
+> | Column Name  | Type    |
+> +--------------+---------+
+> | patient_id   | int     |
+> | patient_name | varchar |
+> | conditions   | varchar |
+> +--------------+---------+
+> ```
+>
+> `patient_id` is the primary key (column with unique values) for this table.
+>
+> `conditions` contains 0 or more code separated by spaces.
+>
+> This table contains information of the patients in the hospital.
+
+Write a solution to find the `patient_id`, `patient_name`, and `conditions` of the patients who have Type I Diabetes. Type I Diabetes always starts with `DIAB1` prefix.
+
+Return the result table in any order.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Patients` table:
+>
+> ```
+> +------------+--------------+--------------+
+> | patient_id | patient_name | conditions   |
+> +------------+--------------+--------------+
+> | 1          | Daniel       | YFEV COUGH   |
+> | 2          | Alice        |              |
+> | 3          | Bob          | DIAB100 MYOP |
+> | 4          | George       | ACNE DIAB100 |
+> | 5          | Alain        | DIAB201      |
+> +------------+--------------+--------------+
+> ```
+>
+> Output:
+>
+> ```
+> +------------+--------------+--------------+
+> | patient_id | patient_name | conditions   |
+> +------------+--------------+--------------+
+> | 3          | Bob          | DIAB100 MYOP |
+> | 4          | George       | ACNE DIAB100 |
+> +------------+--------------+--------------+
+> ```
+>
+> **Explanation:**
+>
+> Bob and George both have a condition that starts with DIAB1.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Patients (
+    patient_id INT PRIMARY KEY,
+    patient_name VARCHAR(100),
+    conditions VARCHAR(255)
+);
+
+INSERT INTO Patients (patient_id, patient_name, conditions) VALUES
+    (1, 'Daniel', 'YFEV COUGH'),
+    (2, 'Alice', ''),
+    (3, 'Bob', 'DIAB100 MYOP'),
+    (4, 'George', 'ACNE DIAB100'),
+    (5, 'Alain', 'DIAB201');
+```
+
+## Jawaban SQL
+
+### Solusi 1: Menggunakan LIKE
+
+```sql
+SELECT *
+FROM Patients
+WHERE conditions LIKE 'DIAB1%' OR conditions LIKE '% DIAB1%';
+```
+
+### Solusi 2: Menggunakan Regex
+
+```sql
+SELECT *
+FROM Patients
+WHERE conditions ~ '\yDIAB1';
+```
+
+## Penjelasan
+
+Soal ini meminta kita mencari pasien yang punya kondisi yang **dimulai dengan** `DIAB1`. Yang tricky di sini adalah: kondisi bisa ada di awal string atau di tengah string (setelah spasi).
+
+Mari kita breakdown kedua solusi:
+
+### Solusi 1: Menggunakan LIKE
+
+```sql
+WHERE conditions LIKE 'DIAB1%' OR conditions LIKE '% DIAB1%'
+```
+
+Kita menggunakan 2 pattern untuk menangkap 2 kemungkinan posisi:
+
+#### Pattern 1: `'DIAB1%'`
+
+Mencari string yang **dimulai dengan** `DIAB1`.
+
+- `DIAB1` - harus match dengan tepat
+- `%` - wildcard yang match dengan 0 atau lebih karakter apapun
+
+Contoh yang match:
+- `'DIAB100 MYOP'` ✓ (dimulai dengan DIAB1)
+- `'DIAB1'` ✓ (dimulai dengan DIAB1)
+
+Contoh yang tidak match:
+- `'ACNE DIAB100'` ✗ (tidak dimulai dengan DIAB1)
+- `'DIAB201'` ✗ (dimulai dengan DIAB2, bukan DIAB1)
+
+#### Pattern 2: `'% DIAB1%'`
+
+Mencari string yang punya `DIAB1` **setelah spasi**.
+
+- `%` - wildcard untuk karakter apapun sebelumnya
+- ` ` (spasi) - harus ada spasi sebelum DIAB1
+- `DIAB1` - harus match dengan tepat
+- `%` - wildcard untuk karakter apapun setelahnya
+
+Contoh yang match:
+- `'ACNE DIAB100'` ✓ (ada spasi sebelum DIAB1)
+- `'YFEV DIAB1'` ✓ (ada spasi sebelum DIAB1)
+
+Contoh yang tidak match:
+- `'DIAB100 MYOP'` ✗ (tidak ada spasi sebelum DIAB1, karena sudah di-cover pattern 1)
+- `'ACNE DIAB201'` ✗ (ada DIAB2, bukan DIAB1)
+
+#### Kenapa Perlu 2 Pattern?
+
+Karena kondisi bisa berupa:
+1. `'DIAB100 MYOP'` - DIAB1 di awal (pattern 1)
+2. `'ACNE DIAB100'` - DIAB1 di tengah setelah spasi (pattern 2)
+
+Kalau cuma pakai `LIKE '%DIAB1%'`, ini akan match dengan string seperti `'XDIAB100'` yang seharusnya tidak valid karena DIAB1 harus jadi kata tersendiri (word boundary).
+
+#### Hasil untuk Setiap Baris:
+
+```
+patient_id | conditions      | LIKE 'DIAB1%' | LIKE '% DIAB1%' | Result
+-----------|-----------------|---------------|-----------------|--------
+1          | YFEV COUGH      | ✗             | ✗               | ✗
+2          |                 | ✗             | ✗               | ✗
+3          | DIAB100 MYOP    | ✓             | ✗               | ✓
+4          | ACNE DIAB100    | ✗             | ✓               | ✓
+5          | DIAB201         | ✗             | ✗               | ✗
+```
+
+Hasil akhir:
+
+```
++------------+--------------+--------------+
+| patient_id | patient_name | conditions   |
++------------+--------------+--------------+
+| 3          | Bob          | DIAB100 MYOP |
+| 4          | George       | ACNE DIAB100 |
++------------+--------------+--------------+
+```
+
+### Solusi 2: Menggunakan Regex
+
+```sql
+WHERE conditions ~ '\yDIAB1'
+```
+
+Solusi ini menggunakan regex (regular expression) dengan operator `~`.
+
+**`~`**: Operator regex matching di PostgreSQL (case-sensitive)
+
+**`\y`**: Word boundary - memastikan `DIAB1` adalah awal dari sebuah kata, bukan bagian dari kata lain
+
+Contoh:
+- `'DIAB100 MYOP'` ✓ (DIAB1 adalah awal kata)
+- `'ACNE DIAB100'` ✓ (DIAB1 adalah awal kata setelah spasi)
+- `'XDIAB100'` ✗ (DIAB1 bukan awal kata, ada X sebelumnya)
+- `'DIAB201'` ✗ (dimulai dengan DIAB2, bukan DIAB1)
+
+**Keuntungan Regex:**
+- Lebih ringkas (1 kondisi vs 2 kondisi)
+- Lebih powerful untuk pattern matching yang kompleks
+- Word boundary `\y` otomatis handle spasi dan awal string
+
+**Kekurangan Regex:**
+- Sedikit lebih lambat untuk dataset besar
+- Lebih sulit dipahami untuk pemula
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `WHERE`: Memfilter baris berdasarkan kondisi.
+- `LIKE`: Operator pattern matching untuk string.
+- `%`: Wildcard yang match dengan 0 atau lebih karakter apapun.
+- `OR`: Operator logika yang mengembalikan true jika salah satu kondisi true.
+- `~`: Operator regex matching di PostgreSQL (case-sensitive).
+- `\y`: Word boundary dalam regex - match dengan awal atau akhir kata.
+- Pattern Matching: Teknik mencari string yang sesuai dengan pola tertentu.
+- Regular Expression (Regex): Bahasa untuk mendefinisikan pattern pencarian string yang kompleks.
