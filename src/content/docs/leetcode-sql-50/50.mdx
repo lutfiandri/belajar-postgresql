@@ -1,0 +1,210 @@
+---
+title: Find Users With Valid E-Mails
+description: Find Users With Valid E-Mails
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Advanced String Functions / Regex / Clause" variant="note" />
+
+Validasi format email menggunakan regex untuk memastikan prefix dimulai dengan huruf, hanya berisi karakter yang diizinkan, dan domain adalah `@leetcode.com`.
+
+https://leetcode.com/problems/find-users-with-valid-e-mails
+
+## Soal
+
+> Table: `Users`
+>
+> ```
+> +---------------+---------+
+> | Column Name   | Type    |
+> +---------------+---------+
+> | user_id       | int     |
+> | name          | varchar |
+> | mail          | varchar |
+> +---------------+---------+
+> ```
+>
+> `user_id` is the primary key (column with unique values) for this table.
+>
+> This table contains information of the users signed up in a website. Some e-mails are invalid.
+
+Write a solution to find the users who have **valid emails**.
+
+A valid e-mail has a prefix name and a domain where:
+
+- The **prefix name** is a string that may contain letters (upper or lower case), digits, underscore `_`, period `.`, and/or dash `-`. The prefix name **must start with a letter**.
+- The **domain** is `@leetcode.com`.
+
+Return the result table in any order.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Users` table:
+>
+> ```
+> +---------+-----------+-------------------------+
+> | user_id | name      | mail                    |
+> +---------+-----------+-------------------------+
+> | 1       | Winston   | winston@leetcode.com    |
+> | 2       | Jonathan  | jonathanisgreat         |
+> | 3       | Annabelle | bella-@leetcode.com     |
+> | 4       | Sally     | sally.come@leetcode.com |
+> | 5       | Marwan    | quarz#2020@leetcode.com |
+> | 6       | David     | david69@gmail.com       |
+> | 7       | Shapiro   | .shapo@leetcode.com     |
+> +---------+-----------+-------------------------+
+> ```
+>
+> Output:
+>
+> ```
+> +---------+-----------+-------------------------+
+> | user_id | name      | mail                    |
+> +---------+-----------+-------------------------+
+> | 1       | Winston   | winston@leetcode.com    |
+> | 3       | Annabelle | bella-@leetcode.com     |
+> | 4       | Sally     | sally.come@leetcode.com |
+> +---------+-----------+-------------------------+
+> ```
+>
+> **Explanation:**
+> - The mail of user 2 does not have a domain.
+> - The mail of user 5 has the # sign which is not allowed.
+> - The mail of user 6 does not have the leetcode domain.
+> - The mail of user 7 starts with a period.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Users (
+    user_id INT PRIMARY KEY,
+    name VARCHAR(100),
+    mail VARCHAR(255)
+);
+
+INSERT INTO Users (user_id, name, mail) VALUES
+    (1, 'Winston', 'winston@leetcode.com'),
+    (2, 'Jonathan', 'jonathanisgreat'),
+    (3, 'Annabelle', 'bella-@leetcode.com'),
+    (4, 'Sally', 'sally.come@leetcode.com'),
+    (5, 'Marwan', 'quarz#2020@leetcode.com'),
+    (6, 'David', 'david69@gmail.com'),
+    (7, 'Shapiro', '.shapo@leetcode.com');
+```
+
+## Jawaban SQL
+
+```sql
+SELECT *
+FROM Users
+WHERE mail ~ '^[a-zA-Z][a-zA-Z0-9_.-]*@leetcode\.com$';
+```
+
+## Penjelasan
+
+Soal ini meminta kita memvalidasi format email dengan aturan khusus. Kita akan menggunakan **regex (regular expression)** untuk pattern matching.
+
+### Regex Pattern: `^[a-zA-Z][a-zA-Z0-9_.-]*@leetcode\.com$`
+
+Mari kita breakdown regex pattern-nya:
+
+**`^`** - Awal string
+- Memastikan pattern dimulai dari awal string
+
+**`[a-zA-Z]`** - Huruf pertama
+- `[a-zA-Z]`: Harus huruf (A-Z atau a-z)
+- Ini memastikan prefix **dimulai dengan huruf**
+
+**`[a-zA-Z0-9_.-]*`** - Karakter selanjutnya
+- `[a-zA-Z0-9_.-]`: Boleh huruf, angka, underscore, period, atau dash
+- `*`: 0 atau lebih karakter (boleh tidak ada karakter setelah huruf pertama)
+
+**`@leetcode\.com`** - Domain
+- `@leetcode`: Harus ada `@leetcode`
+- `\.`: Titik literal (harus di-escape dengan `\` karena `.` punya arti khusus di regex)
+- `com`: Harus diakhiri dengan `com`
+
+**`$`** - Akhir string
+- Memastikan pattern berakhir di sini (tidak ada karakter tambahan setelah `.com`)
+
+### Operator `~`
+
+```sql
+WHERE mail ~ '^[a-zA-Z][a-zA-Z0-9_.-]*@leetcode\.com$'
+```
+
+`~` adalah operator regex matching di PostgreSQL (case-sensitive).
+
+### Validasi Setiap Email
+
+Mari kita cek setiap email:
+
+```
+user_id | mail                    | Valid? | Alasan
+--------|-------------------------|--------|----------------------------------
+1       | winston@leetcode.com    | ✓      | Semua aturan terpenuhi
+2       | jonathanisgreat         | ✗      | Tidak ada domain @leetcode.com
+3       | bella-@leetcode.com     | ✓      | Prefix dimulai huruf, dash diizinkan
+4       | sally.come@leetcode.com | ✓      | Prefix dimulai huruf, period diizinkan
+5       | quarz#2020@leetcode.com | ✗      | # tidak diizinkan di prefix
+6       | david69@gmail.com       | ✗      | Domain bukan @leetcode.com
+7       | .shapo@leetcode.com     | ✗      | Prefix dimulai dengan period (bukan huruf)
+```
+
+### Penjelasan Detail Regex
+
+**Kenapa `\.` untuk titik?**
+
+Di regex, `.` artinya "karakter apapun". Kalau kita mau match titik literal, harus pakai `\.`.
+
+```
+Tanpa escape:
+@leetcodeXcom ✓ (X match dengan .)
+
+Dengan escape:
+@leetcode.com ✓ (hanya titik yang match)
+@leetcodeXcom ✗ (X tidak match dengan \.)
+```
+
+**Kenapa `*` setelah `[a-zA-Z0-9_.-]`?**
+
+`*` artinya 0 atau lebih. Ini memungkinkan prefix hanya 1 huruf (seperti `a@leetcode.com`).
+
+```
+a@leetcode.com        ✓ (1 huruf, 0 karakter tambahan)
+ab@leetcode.com       ✓ (1 huruf, 1 karakter tambahan)
+abc123@leetcode.com   ✓ (1 huruf, 5 karakter tambahan)
+```
+
+### Hasil Akhir
+
+```
++---------+-----------+-------------------------+
+| user_id | name      | mail                    |
++---------+-----------+-------------------------+
+| 1       | Winston   | winston@leetcode.com    |
+| 3       | Annabelle | bella-@leetcode.com     |
+| 4       | Sally     | sally.come@leetcode.com |
++---------+-----------+-------------------------+
+```
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `WHERE`: Memfilter baris berdasarkan kondisi.
+- `~`: Operator regex matching di PostgreSQL (case-sensitive).
+- Regular Expression (Regex): Bahasa untuk mendefinisikan pattern pencarian string yang kompleks.
+- `^`: Anchor untuk awal string dalam regex.
+- `$`: Anchor untuk akhir string dalam regex.
+- `[abc]`: Character class - match salah satu karakter dalam bracket.
+- `*`: Quantifier - 0 atau lebih kemunculan.
+- `\.`: Escape character untuk match titik literal.
