@@ -1,0 +1,286 @@
+---
+title: List the Products Ordered in a Period
+description: List the Products Ordered in a Period
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Advanced String Functions / Regex / Clause" variant="note" />
+
+Cari produk yang dipesan minimal 100 unit di bulan tertentu menggunakan `JOIN`, `SUM()`, `GROUP BY`, `HAVING`, dan date filtering.
+
+https://leetcode.com/problems/list-the-products-ordered-in-a-period
+
+## Soal
+
+> Table: `Products`
+>
+> ```
+> +------------------+---------+
+> | Column Name      | Type    |
+> +------------------+---------+
+> | product_id       | int     |
+> | product_name     | varchar |
+> | product_category | varchar |
+> +------------------+---------+
+> ```
+>
+> `product_id` is the primary key (column with unique values) for this table.
+>
+> This table contains data about the company's products.
+>
+> Table: `Orders`
+>
+> ```
+> +---------------+---------+
+> | Column Name   | Type    |
+> +---------------+---------+
+> | product_id    | int     |
+> | order_date    | date    |
+> | unit          | int     |
+> +---------------+---------+
+> ```
+>
+> This table may have duplicate rows.
+>
+> `product_id` is a foreign key (reference column) to the `Products` table.
+>
+> `unit` is the number of products ordered in `order_date`.
+
+Write a solution to get the names of products that have at least 100 units ordered in **February 2020** and their amount.
+
+Return the result table in any order.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Products` table:
+>
+> ```
+> +-------------+-----------------------+------------------+
+> | product_id  | product_name          | product_category |
+> +-------------+-----------------------+------------------+
+> | 1           | Leetcode Solutions    | Book             |
+> | 2           | Jewels of Stringology | Book             |
+> | 3           | HP                    | Laptop           |
+> | 4           | Lenovo                | Laptop           |
+> | 5           | Leetcode Kit          | T-shirt          |
+> +-------------+-----------------------+------------------+
+> ```
+>
+> `Orders` table:
+>
+> ```
+> +--------------+--------------+----------+
+> | product_id   | order_date   | unit     |
+> +--------------+--------------+----------+
+> | 1            | 2020-02-05   | 60       |
+> | 1            | 2020-02-10   | 70       |
+> | 2            | 2020-01-18   | 30       |
+> | 2            | 2020-02-11   | 80       |
+> | 3            | 2020-02-17   | 2        |
+> | 3            | 2020-02-24   | 3        |
+> | 4            | 2020-03-01   | 20       |
+> | 4            | 2020-03-04   | 30       |
+> | 4            | 2020-03-04   | 60       |
+> | 5            | 2020-02-25   | 50       |
+> | 5            | 2020-02-27   | 50       |
+> | 5            | 2020-03-01   | 50       |
+> +--------------+--------------+----------+
+> ```
+>
+> Output:
+>
+> ```
+> +--------------------+---------+
+> | product_name       | unit    |
+> +--------------------+---------+
+> | Leetcode Solutions | 130     |
+> | Leetcode Kit       | 100     |
+> +--------------------+---------+
+> ```
+>
+> **Explanation:**
+> - Products with product_id = 1 is ordered in February a total of (60 + 70) = 130.
+> - Products with product_id = 2 is ordered in February a total of 80.
+> - Products with product_id = 3 is ordered in February a total of (2 + 3) = 5.
+> - Products with product_id = 4 was not ordered in February 2020.
+> - Products with product_id = 5 is ordered in February a total of (50 + 50) = 100.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Products (
+    product_id INT PRIMARY KEY,
+    product_name VARCHAR(100),
+    product_category VARCHAR(50)
+);
+
+CREATE TABLE Orders (
+    product_id INT,
+    order_date DATE,
+    unit INT,
+    FOREIGN KEY (product_id) REFERENCES Products(product_id)
+);
+
+INSERT INTO Products (product_id, product_name, product_category) VALUES
+    (1, 'Leetcode Solutions', 'Book'),
+    (2, 'Jewels of Stringology', 'Book'),
+    (3, 'HP', 'Laptop'),
+    (4, 'Lenovo', 'Laptop'),
+    (5, 'Leetcode Kit', 'T-shirt');
+
+INSERT INTO Orders (product_id, order_date, unit) VALUES
+    (1, '2020-02-05', 60),
+    (1, '2020-02-10', 70),
+    (2, '2020-01-18', 30),
+    (2, '2020-02-11', 80),
+    (3, '2020-02-17', 2),
+    (3, '2020-02-24', 3),
+    (4, '2020-03-01', 20),
+    (4, '2020-03-04', 30),
+    (4, '2020-03-04', 60),
+    (5, '2020-02-25', 50),
+    (5, '2020-02-27', 50),
+    (5, '2020-03-01', 50);
+```
+
+## Jawaban SQL
+
+### Solusi 1: Menggunakan TO_CHAR
+
+```sql
+SELECT
+    p.product_name,
+    SUM(o.unit) AS unit
+FROM Products p
+JOIN Orders o ON p.product_id = o.product_id
+WHERE TO_CHAR(o.order_date, 'YYYY-MM') = '2020-02'
+GROUP BY p.product_name
+HAVING SUM(o.unit) >= 100;
+```
+
+### Solusi 2: Menggunakan Date Range (Lebih Optimal)
+
+```sql
+SELECT
+    p.product_name,
+    SUM(o.unit) AS unit
+FROM Products p
+JOIN Orders o ON p.product_id = o.product_id
+WHERE o.order_date >= '2020-02-01' AND o.order_date < '2020-03-01'
+GROUP BY p.product_name
+HAVING SUM(o.unit) >= 100;
+```
+
+## Penjelasan
+
+Soal ini meminta kita mencari produk yang total pesanannya di **February 2020** minimal 100 unit.
+
+### Solusi 1: Menggunakan TO_CHAR
+
+```sql
+WHERE TO_CHAR(o.order_date, 'YYYY-MM') = '2020-02'
+```
+
+`TO_CHAR(o.order_date, 'YYYY-MM')` mengubah date menjadi string format "YYYY-MM" (contoh: "2020-02").
+
+**Kekurangan:**
+- Harus convert date ke string untuk setiap baris (lebih lambat)
+- Tidak bisa memanfaatkan index pada kolom `order_date`
+
+### Solusi 2: Menggunakan Date Range (Lebih Optimal)
+
+```sql
+WHERE o.order_date >= '2020-02-01' AND o.order_date < '2020-03-01'
+```
+
+Filter langsung dengan date comparison:
+- `>= '2020-02-01'`: Mulai dari 1 Februari 2020 (inclusive)
+- `< '2020-03-01'`: Sebelum 1 Maret 2020 (exclusive)
+
+**Keuntungan:**
+- Lebih cepat karena langsung compare date tanpa konversi
+- Bisa memanfaatkan index pada kolom `order_date`
+
+### Breakdown Query
+
+**1. JOIN untuk menggabungkan data:**
+
+```sql
+FROM Products p
+JOIN Orders o ON p.product_id = o.product_id
+```
+
+Gabungkan tabel `Products` dan `Orders` berdasarkan `product_id`.
+
+**2. Filter berdasarkan bulan:**
+
+```sql
+WHERE o.order_date >= '2020-02-01' AND o.order_date < '2020-03-01'
+```
+
+Ambil hanya order di February 2020.
+
+**3. GROUP BY dan SUM:**
+
+```sql
+GROUP BY p.product_name
+```
+
+Kelompokkan berdasarkan nama produk, lalu jumlahkan unit-nya.
+
+Contoh untuk product_id = 1:
+```
+Order 1: 60 unit (2020-02-05)
+Order 2: 70 unit (2020-02-10)
+SUM = 130 unit
+```
+
+**4. HAVING untuk filter hasil agregat:**
+
+```sql
+HAVING SUM(o.unit) >= 100
+```
+
+Ambil hanya produk yang total unit-nya >= 100.
+
+**Kenapa pakai HAVING, bukan WHERE?**
+
+`WHERE` filter sebelum agregasi, `HAVING` filter setelah agregasi. Karena kita mau filter berdasarkan hasil `SUM()`, harus pakai `HAVING`.
+
+### Hasil Akhir
+
+```
++--------------------+---------+
+| product_name       | unit    |
++--------------------+---------+
+| Leetcode Solutions | 130     | <- 60 + 70 >= 100 ✓
+| Leetcode Kit       | 100     | <- 50 + 50 >= 100 ✓
++--------------------+---------+
+```
+
+Yang tidak masuk:
+- Jewels of Stringology: 80 < 100 ✗
+- HP: 5 < 100 ✗
+- Lenovo: 0 (tidak ada order di Feb 2020) ✗
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `JOIN`: Menggabungkan dua tabel berdasarkan kondisi.
+- `ON`: Menentukan kondisi untuk menggabungkan baris dari kedua tabel.
+- `WHERE`: Memfilter baris sebelum agregasi.
+- `GROUP BY`: Mengelompokkan baris berdasarkan nilai kolom tertentu.
+- `HAVING`: Memfilter hasil setelah agregasi.
+- `SUM()`: Menghitung total nilai dalam setiap grup.
+- `TO_CHAR(date, format)`: Mengubah date menjadi string dengan format tertentu.
+- Date Comparison: Membandingkan tanggal langsung tanpa konversi.
+- Foreign Key: Kolom yang merujuk ke primary key di tabel lain.
