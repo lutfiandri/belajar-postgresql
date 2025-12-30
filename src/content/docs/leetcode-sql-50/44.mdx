@@ -1,0 +1,191 @@
+---
+title: Fix Names in a Table
+description: Fix Names in a Table
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Advanced String Functions / Regex / Clause" variant="note" />
+
+Format nama agar huruf pertama kapital dan sisanya kecil menggunakan `UPPER()`, `LOWER()`, `SUBSTRING()`, dan operator konkatenasi string `||`.
+
+https://leetcode.com/problems/fix-names-in-a-table
+
+## Soal
+
+> Table: `Users`
+>
+> ```
+> +----------------+---------+
+> | Column Name    | Type    |
+> +----------------+---------+
+> | user_id        | int     |
+> | name           | varchar |
+> +----------------+---------+
+> ```
+>
+> `user_id` is the primary key (column with unique values) for this table.
+>
+> This table contains the ID and the name of the user. The name consists of only lowercase and uppercase characters.
+
+Write a solution to fix the names so that only the first character is uppercase and the rest are lowercase.
+
+Return the result table ordered by `user_id`.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Users` table:
+>
+> ```
+> +---------+-------+
+> | user_id | name  |
+> +---------+-------+
+> | 1       | aLice |
+> | 2       | bOB   |
+> +---------+-------+
+> ```
+>
+> Output:
+>
+> ```
+> +---------+-------+
+> | user_id | name  |
+> +---------+-------+
+> | 1       | Alice |
+> | 2       | Bob   |
+> +---------+-------+
+> ```
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Users (
+    user_id INT PRIMARY KEY,
+    name VARCHAR(100)
+);
+
+INSERT INTO Users (user_id, name) VALUES
+    (1, 'aLice'),
+    (2, 'bOB');
+```
+
+## Jawaban SQL
+
+```sql
+SELECT
+    user_id,
+    UPPER(SUBSTRING(name, 1, 1)) || LOWER(SUBSTRING(name, 2)) AS name
+FROM Users
+ORDER BY user_id;
+```
+
+## Penjelasan
+
+Soal ini meminta kita memformat nama agar mengikuti format proper case: huruf pertama kapital, sisanya kecil. Kita akan menggunakan fungsi string manipulation untuk memecah nama, mengubah case-nya, lalu menggabungkannya kembali.
+
+Mari kita breakdown query-nya step by step:
+
+### 1. Ambil Huruf Pertama dan Ubah Jadi Kapital
+
+```sql
+UPPER(SUBSTRING(name, 1, 1))
+```
+
+**`SUBSTRING(name, 1, 1)`**
+- Mengambil substring dari `name`
+- Parameter 1: `name` - string yang akan dipotong
+- Parameter 2: `1` - mulai dari posisi 1 (karakter pertama)
+- Parameter 3: `1` - ambil 1 karakter
+
+Contoh:
+- `SUBSTRING('aLice', 1, 1)` → `'a'`
+- `SUBSTRING('bOB', 1, 1)` → `'b'`
+
+**`UPPER(...)`**
+- Mengubah string menjadi huruf kapital semua
+
+Contoh:
+- `UPPER('a')` → `'A'`
+- `UPPER('b')` → `'B'`
+
+### 2. Ambil Sisa Huruf dan Ubah Jadi Kecil
+
+```sql
+LOWER(SUBSTRING(name, 2))
+```
+
+**`SUBSTRING(name, 2)`**
+- Mengambil substring dari `name` mulai posisi 2 sampai akhir
+- Kalau parameter ketiga tidak diberikan, akan ambil sampai akhir string
+
+Contoh:
+- `SUBSTRING('aLice', 2)` → `'Lice'`
+- `SUBSTRING('bOB', 2)` → `'OB'`
+
+**`LOWER(...)`**
+- Mengubah string menjadi huruf kecil semua
+
+Contoh:
+- `LOWER('Lice')` → `'lice'`
+- `LOWER('OB')` → `'ob'`
+
+### 3. Gabungkan dengan Operator ||
+
+```sql
+UPPER(SUBSTRING(name, 1, 1)) || LOWER(SUBSTRING(name, 2))
+```
+
+**Operator `||`**
+- Operator konkatenasi (penggabungan) string di PostgreSQL
+- Menggabungkan dua string menjadi satu
+
+Contoh untuk `'aLice'`:
+```
+UPPER(SUBSTRING('aLice', 1, 1)) → 'A'
+LOWER(SUBSTRING('aLice', 2))    → 'lice'
+'A' || 'lice'                   → 'Alice'
+```
+
+Contoh untuk `'bOB'`:
+```
+UPPER(SUBSTRING('bOB', 1, 1)) → 'B'
+LOWER(SUBSTRING('bOB', 2))    → 'ob'
+'B' || 'ob'                   → 'Bob'
+```
+
+### 4. Urutkan Berdasarkan user_id
+
+```sql
+ORDER BY user_id
+```
+
+Hasil akhir diurutkan berdasarkan `user_id` secara ascending (dari kecil ke besar).
+
+Hasil akhir:
+
+```
++---------+-------+
+| user_id | name  |
++---------+-------+
+| 1       | Alice |
+| 2       | Bob   |
++---------+-------+
+```
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `ORDER BY`: Mengurutkan hasil query.
+- `UPPER(string)`: Mengubah string menjadi huruf kapital semua.
+- `LOWER(string)`: Mengubah string menjadi huruf kecil semua.
+- `SUBSTRING(string, start, length)`: Mengambil bagian dari string. Jika `length` tidak diberikan, ambil sampai akhir string.
+- `||`: Operator konkatenasi string di PostgreSQL untuk menggabungkan dua string.
+- `AS`: Memberi alias untuk kolom hasil query.
