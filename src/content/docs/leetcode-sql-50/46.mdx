@@ -1,0 +1,210 @@
+---
+title: Delete Duplicate Emails
+description: Delete Duplicate Emails
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Easy" variant="note" />
+<Badge text="Advanced String Functions / Regex / Clause" variant="note" />
+
+Hapus email duplikat, simpan hanya yang punya id terkecil menggunakan `DELETE` dengan `USING` untuk self-join.
+
+https://leetcode.com/problems/delete-duplicate-emails
+
+## Soal
+
+> Table: `Person`
+>
+> ```
+> +-------------+---------+
+> | Column Name | Type    |
+> +-------------+---------+
+> | id          | int     |
+> | email       | varchar |
+> +-------------+---------+
+> ```
+>
+> `id` is the primary key (column with unique values) for this table.
+>
+> Each row of this table contains an email. The emails will not contain uppercase letters.
+
+Write a solution to **delete** all duplicate emails, keeping only one unique email with the smallest `id`.
+
+For SQL users, please note that you are supposed to write a `DELETE` statement and not a `SELECT` one.
+
+After running your script, the answer shown is the `Person` table. The driver will first compile and run your piece of code and then show the `Person` table. The final order of the `Person` table does not matter.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Person` table:
+>
+> ```
+> +----+------------------+
+> | id | email            |
+> +----+------------------+
+> | 1  | john@example.com |
+> | 2  | bob@example.com  |
+> | 3  | john@example.com |
+> +----+------------------+
+> ```
+>
+> Output:
+>
+> ```
+> +----+------------------+
+> | id | email            |
+> +----+------------------+
+> | 1  | john@example.com |
+> | 2  | bob@example.com  |
+> +----+------------------+
+> ```
+>
+> **Explanation:**
+>
+> john@example.com is repeated two times. We keep the row with the smallest Id = 1.
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Person (
+    id INT PRIMARY KEY,
+    email VARCHAR(255)
+);
+
+INSERT INTO Person (id, email) VALUES
+    (1, 'john@example.com'),
+    (2, 'bob@example.com'),
+    (3, 'john@example.com');
+```
+
+## Jawaban SQL
+
+```sql
+DELETE FROM Person p1
+USING Person p2
+WHERE p1.email = p2.email 
+  AND p1.id > p2.id;
+```
+
+## Penjelasan
+
+Soal ini meminta kita **menghapus** baris duplikat, bukan hanya menampilkannya. Yang tricky di sini adalah: kita harus membandingkan setiap baris dengan baris lain untuk mencari duplikat, lalu hapus yang id-nya lebih besar.
+
+Mari kita breakdown query-nya step by step:
+
+### 1. DELETE dengan USING (Self-Join)
+
+```sql
+DELETE FROM Person p1
+USING Person p2
+```
+
+**`DELETE FROM Person p1`**
+- Kita akan menghapus baris dari tabel `Person`
+- `p1` adalah alias untuk tabel yang akan dihapus
+
+**`USING Person p2`**
+- `USING` adalah clause khusus PostgreSQL untuk `DELETE` statement
+- Memungkinkan kita join dengan tabel lain (atau tabel yang sama) untuk menentukan baris mana yang akan dihapus
+- `p2` adalah alias untuk tabel yang sama (`Person`) yang digunakan untuk perbandingan
+- Ini adalah teknik **self-join** - join tabel dengan dirinya sendiri
+
+### 2. Kondisi untuk Menentukan Baris yang Dihapus
+
+```sql
+WHERE p1.email = p2.email 
+  AND p1.id > p2.id
+```
+
+**`p1.email = p2.email`**
+- Cari baris di `p1` dan `p2` yang punya email yang sama
+- Ini mendeteksi duplikat
+
+**`p1.id > p2.id`**
+- Dari baris-baris yang punya email sama, hapus yang id-nya lebih besar
+- Dengan kata lain: **simpan yang id-nya paling kecil**
+
+### 3. Visualisasi Cara Kerja
+
+Mari kita lihat bagaimana query ini bekerja dengan data contoh:
+
+**Data awal:**
+
+```
++----+------------------+
+| id | email            |
++----+------------------+
+| 1  | john@example.com |
+| 2  | bob@example.com  |
+| 3  | john@example.com |
++----+------------------+
+```
+
+**Self-join `Person p1` dengan `Person p2`:**
+
+Setiap baris di `p1` dibandingkan dengan setiap baris di `p2`:
+
+```
+p1.id | p1.email         | p2.id | p2.email         | p1.email = p2.email | p1.id > p2.id | DELETE?
+------|------------------|-------|------------------|---------------------|---------------|--------
+1     | john@example.com | 1     | john@example.com | ✓                   | ✗ (1 > 1)     | ✗
+1     | john@example.com | 2     | bob@example.com  | ✗                   | ✗             | ✗
+1     | john@example.com | 3     | john@example.com | ✓                   | ✗ (1 > 3)     | ✗
+2     | bob@example.com  | 1     | john@example.com | ✗                   | ✗             | ✗
+2     | bob@example.com  | 2     | bob@example.com  | ✓                   | ✗ (2 > 2)     | ✗
+2     | bob@example.com  | 3     | john@example.com | ✗                   | ✗             | ✗
+3     | john@example.com | 1     | john@example.com | ✓                   | ✓ (3 > 1)     | ✓ HAPUS!
+3     | john@example.com | 2     | bob@example.com  | ✗                   | ✗             | ✗
+3     | john@example.com | 3     | john@example.com | ✓                   | ✗ (3 > 3)     | ✗
+```
+
+Hanya baris dengan `id = 3` yang memenuhi kedua kondisi:
+- Email sama dengan baris lain (`john@example.com`)
+- Id lebih besar dari baris lain yang punya email sama (3 > 1)
+
+**Data setelah DELETE:**
+
+```
++----+------------------+
+| id | email            |
++----+------------------+
+| 1  | john@example.com |
+| 2  | bob@example.com  |
++----+------------------+
+```
+
+### 4. Kenapa Pakai USING?
+
+Di PostgreSQL, `USING` memungkinkan kita melakukan join dalam `DELETE` statement. Tanpa `USING`, kita harus pakai subquery yang lebih kompleks:
+
+```sql
+-- Tanpa USING (lebih kompleks)
+DELETE FROM Person
+WHERE id IN (
+    SELECT p1.id
+    FROM Person p1
+    JOIN Person p2 ON p1.email = p2.email AND p1.id > p2.id
+);
+```
+
+Dengan `USING`, syntax-nya lebih clean dan performanya lebih baik.
+
+:::note
+`USING` clause dalam `DELETE` statement adalah fitur khusus PostgreSQL. Di database lain seperti MySQL, kamu mungkin perlu menggunakan syntax yang berbeda.
+:::
+
+## Referensi
+
+- `DELETE FROM`: Statement untuk menghapus baris dari tabel.
+- `USING`: Clause khusus PostgreSQL untuk join dalam `DELETE` statement.
+- `WHERE`: Menentukan kondisi baris mana yang akan dihapus.
+- `AND`: Operator logika yang mengembalikan true jika semua kondisi true.
+- Self-Join: Teknik join tabel dengan dirinya sendiri untuk membandingkan baris dalam tabel yang sama.
+- Alias: Nama alternatif untuk tabel (seperti `p1`, `p2`) untuk memudahkan referensi.
