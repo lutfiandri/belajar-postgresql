@@ -1,0 +1,194 @@
+---
+title: Second Highest Salary
+description: Second Highest Salary
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Medium" variant="note" />
+<Badge text="Subqueries" variant="note" />
+
+Cari salary tertinggi kedua yang unik menggunakan subquery, `DISTINCT`, `ORDER BY`, `OFFSET`, dan `LIMIT`.
+
+https://leetcode.com/problems/second-highest-salary
+
+## Soal
+
+> Table: `Employee`
+>
+> ```
+> +-------------+------+
+> | Column Name | Type |
+> +-------------+------+
+> | id          | int  |
+> | salary      | int  |
+> +-------------+------+
+> ```
+>
+> `id` is the primary key (column with unique values) for this table.
+>
+> Each row of this table contains information about the salary of an employee.
+
+Write a solution to find the second highest **distinct** salary from the `Employee` table. If there is no second highest salary, return `null`.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Employee` table:
+>
+> ```
+> +----+--------+
+> | id | salary |
+> +----+--------+
+> | 1  | 100    |
+> | 2  | 200    |
+> | 3  | 300    |
+> +----+--------+
+> ```
+>
+> Output:
+>
+> ```
+> +---------------------+
+> | SecondHighestSalary |
+> +---------------------+
+> | 200                 |
+> +---------------------+
+> ```
+
+> **Example 2:**
+>
+> Input:
+>
+> `Employee` table:
+>
+> ```
+> +----+--------+
+> | id | salary |
+> +----+--------+
+> | 1  | 100    |
+> +----+--------+
+> ```
+>
+> Output:
+>
+> ```
+> +---------------------+
+> | SecondHighestSalary |
+> +---------------------+
+> | null                |
+> +---------------------+
+> ```
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Employee (
+    id INT PRIMARY KEY,
+    salary INT
+);
+
+-- Example 1
+INSERT INTO Employee (id, salary) VALUES
+    (1, 100),
+    (2, 200),
+    (3, 300);
+
+-- Example 2
+-- INSERT INTO Employee (id, salary) VALUES (1, 100);
+```
+
+## Jawaban SQL
+
+```sql
+SELECT (
+    SELECT DISTINCT salary
+    FROM Employee
+    ORDER BY salary DESC
+    OFFSET 1 LIMIT 1
+) AS SecondHighestSalary;
+```
+
+## Penjelasan
+
+Soal ini meminta kita mencari salary tertinggi **kedua** yang **unik**. Kalau tidak ada salary kedua, return `null`.
+
+### Cara Kerja Query
+
+```sql
+SELECT (
+    SELECT DISTINCT salary
+    FROM Employee
+    ORDER BY salary DESC
+    OFFSET 1 LIMIT 1
+) AS SecondHighestSalary
+```
+
+**1. Subquery (bagian dalam):**
+- `DISTINCT salary`: Ambil salary unik (hilangkan duplikat)
+- `ORDER BY salary DESC`: Urutkan dari tertinggi ke terendah
+- `OFFSET 1`: Skip 1 baris pertama (salary tertinggi)
+- `LIMIT 1`: Ambil 1 baris berikutnya (salary kedua)
+
+Contoh:
+```
+Salary: 300, 200, 100
+Setelah ORDER BY DESC: 300, 200, 100
+Setelah OFFSET 1: 200, 100
+Setelah LIMIT 1: 200
+```
+
+**2. Outer SELECT:**
+
+Kenapa perlu dibungkus dengan outer SELECT?
+
+Kalau tidak ada salary kedua, subquery akan return **0 rows** (empty result). Tapi soal minta return **1 row dengan nilai `null`**. Outer SELECT mengubah empty result jadi `null`.
+
+```
+Tanpa outer SELECT:
+(0 rows) <- empty result
+
+Dengan outer SELECT:
++---------------------+
+| SecondHighestSalary |
++---------------------+
+| null                |
++---------------------+
+(1 row dengan nilai NULL)
+```
+
+### Kenapa Pakai DISTINCT?
+
+Kalau ada 2 orang dengan salary yang sama, tanpa `DISTINCT` kita bisa ambil salary yang sama lagi:
+
+```
+Salary: 300, 300, 200
+
+Tanpa DISTINCT:
+OFFSET 1 → skip 300 pertama
+LIMIT 1 → ambil 300 kedua (SALAH!)
+
+Dengan DISTINCT:
+Salary unik: 300, 200
+OFFSET 1 → skip 300
+LIMIT 1 → ambil 200 (BENAR!)
+```
+
+## Referensi
+
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `DISTINCT`: Menghilangkan duplikasi baris.
+- `ORDER BY`: Mengurutkan hasil query.
+- `DESC`: Descending - urutkan dari besar ke kecil.
+- `OFFSET n`: Skip n baris pertama dari hasil query.
+- `LIMIT n`: Membatasi hasil query hanya n baris pertama.
+- `AS`: Memberi alias untuk kolom hasil query.
+- Subquery: Query di dalam query lain.
+- Scalar Subquery: Subquery yang return maksimal 1 baris dan 1 kolom, bisa digunakan sebagai value.
+- `NULL`: Nilai kosong/tidak ada data.
