@@ -1,0 +1,344 @@
+---
+title: Department Top Three Salaries
+description: Department Top Three Salaries
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Hard" variant="caution" />
+<Badge text="Window Functions" variant="note" />
+
+Cari karyawan dengan salary top 3 unik di setiap department menggunakan multiple CTE, `DISTINCT`, window function `SUM() OVER()` untuk ranking, dan `JOIN`.
+
+https://leetcode.com/problems/department-top-three-salaries
+
+## Soal
+
+> Table: `Employee`
+>
+> ```
+> +--------------+---------+
+> | Column Name  | Type    |
+> +--------------+---------+
+> | id           | int     |
+> | name         | varchar |
+> | salary       | int     |
+> | departmentId | int     |
+> +--------------+---------+
+> ```
+>
+> `id` is the primary key (column with unique values) for this table.
+>
+> `departmentId` is a foreign key (reference column) of the ID from the `Department` table.
+>
+> Each row of this table indicates the ID, name, and salary of an employee. It also contains the ID of their department.
+>
+> Table: `Department`
+>
+> ```
+> +-------------+---------+
+> | Column Name | Type    |
+> +-------------+---------+
+> | id          | int     |
+> | name        | varchar |
+> +-------------+---------+
+> ```
+>
+> `id` is the primary key (column with unique values) for this table.
+>
+> Each row of this table indicates the ID of a department and its name.
+
+A company's executives are interested in seeing who earns the most money in each of the company's departments. A high earner in a department is an employee who has a salary in the **top three unique salaries** for that department.
+
+Write a solution to find the employees who are high earners in each of the departments.
+
+Return the result table in any order.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Employee` table:
+>
+> ```
+> +----+-------+--------+--------------+
+> | id | name  | salary | departmentId |
+> +----+-------+--------+--------------+
+> | 1  | Joe   | 85000  | 1            |
+> | 2  | Henry | 80000  | 2            |
+> | 3  | Sam   | 60000  | 2            |
+> | 4  | Max   | 90000  | 1            |
+> | 5  | Janet | 69000  | 1            |
+> | 6  | Randy | 85000  | 1            |
+> | 7  | Will  | 70000  | 1            |
+> +----+-------+--------+--------------+
+> ```
+>
+> `Department` table:
+>
+> ```
+> +----+-------+
+> | id | name  |
+> +----+-------+
+> | 1  | IT    |
+> | 2  | Sales |
+> +----+-------+
+> ```
+>
+> Output:
+>
+> ```
+> +------------+----------+--------+
+> | Department | Employee | Salary |
+> +------------+----------+--------+
+> | IT         | Max      | 90000  |
+> | IT         | Joe      | 85000  |
+> | IT         | Randy    | 85000  |
+> | IT         | Will     | 70000  |
+> | Sales      | Henry    | 80000  |
+> | Sales      | Sam      | 60000  |
+> +------------+----------+--------+
+> ```
+>
+> **Explanation:**
+>
+> In the IT department:
+> - Max earns the highest unique salary
+> - Both Randy and Joe earn the second-highest unique salary
+> - Will earns the third-highest unique salary
+>
+> In the Sales department:
+> - Henry earns the highest salary
+> - Sam earns the second-highest salary
+> - There is no third-highest salary as there are only two employees
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Department (
+    id INT PRIMARY KEY,
+    name VARCHAR(100)
+);
+
+CREATE TABLE Employee (
+    id INT PRIMARY KEY,
+    name VARCHAR(100),
+    salary INT,
+    departmentId INT,
+    FOREIGN KEY (departmentId) REFERENCES Department(id)
+);
+
+INSERT INTO Department (id, name) VALUES
+    (1, 'IT'),
+    (2, 'Sales');
+
+INSERT INTO Employee (id, name, salary, departmentId) VALUES
+    (1, 'Joe', 85000, 1),
+    (2, 'Henry', 80000, 2),
+    (3, 'Sam', 60000, 2),
+    (4, 'Max', 90000, 1),
+    (5, 'Janet', 69000, 1),
+    (6, 'Randy', 85000, 1),
+    (7, 'Will', 70000, 1);
+```
+
+## Jawaban SQL
+
+```sql
+WITH salary_department AS (
+    SELECT DISTINCT
+        salary,
+        departmentId
+    FROM Employee
+    ORDER BY
+        departmentId,
+        salary DESC
+),
+
+top_salary_department AS (
+    SELECT
+        *,
+        DENSE_RANK() OVER(PARTITION BY departmentId ORDER BY salary DESC) AS rank
+    FROM salary_department
+)
+
+SELECT
+    d.name AS "Department",
+    e.name AS "Employee",
+    t.salary AS "Salary"
+FROM top_salary_department AS t
+JOIN Department d ON t.departmentId = d.id
+JOIN Employee e ON t.departmentId = e.departmentId AND t.salary = e.salary
+WHERE t.rank <= 3;
+```
+
+## Penjelasan
+
+Soal ini meminta kita mencari karyawan dengan salary **top 3 unik** di setiap department. Yang tricky di sini adalah kata **"unik"** - jika ada 2 orang dengan salary yang sama, mereka tetap dihitung sebagai 1 ranking.
+
+Kita akan menggunakan 2 CTE untuk memecah masalah ini menjadi tahap-tahap yang jelas:
+- **CTE 1 (`salary_department`)**: Ambil salary unik per department
+- **CTE 2 (`top_salary_department`)**: Beri ranking untuk setiap salary unik
+
+:::note
+Query ini menggunakan 2 CTE untuk memecah masalah kompleks menjadi tahap-tahap kecil. Ini membuat flow query sangat mudah dipahami: ambil salary unik → beri ranking → join dengan data lengkap → filter top 3.
+:::
+
+Mari kita breakdown query-nya step by step:
+
+### 1. CTE Pertama: Ambil Salary Unik per Department
+
+```sql
+WITH salary_department AS (
+    SELECT DISTINCT
+        salary,
+        departmentId
+    FROM Employee
+    ORDER BY
+        departmentId,
+        salary DESC
+)
+```
+
+Pertama, kita ambil kombinasi `salary` dan `departmentId` yang **unik** menggunakan `DISTINCT`. Ini penting karena kita hanya mau ranking berdasarkan salary unik, bukan per karyawan.
+
+Hasil CTE `salary_department`:
+
+```
++--------+--------------+
+| salary | departmentId |
++--------+--------------+
+| 90000  | 1            | <- IT: salary tertinggi
+| 85000  | 1            | <- IT: salary kedua (Joe & Randy punya salary ini)
+| 70000  | 1            | <- IT: salary ketiga
+| 69000  | 1            | <- IT: salary keempat
+| 80000  | 2            | <- Sales: salary tertinggi
+| 60000  | 2            | <- Sales: salary kedua
++--------+--------------+
+```
+
+Perhatikan bahwa Joe dan Randy sama-sama punya salary 85000, tapi di CTE ini cuma muncul 1 baris. Ini yang dimaksud dengan "unique salary".
+
+### 2. CTE Kedua: Beri Ranking dengan Window Function
+
+```sql
+top_salary_department AS (
+    SELECT
+        *,
+        DENSE_RANK() OVER(PARTITION BY departmentId ORDER BY salary DESC) AS rank
+    FROM salary_department
+)
+```
+
+Sekarang kita beri ranking untuk setiap salary unik di setiap department menggunakan window function `DENSE_RANK()`.
+
+**Kenapa pakai `DENSE_RANK()`?**
+
+`DENSE_RANK()` adalah fungsi ranking yang memberikan nomor urut tanpa skip. Kalau ada nilai yang sama, mereka dapat rank yang sama, tapi rank berikutnya tidak di-skip.
+
+Contoh perbedaan `DENSE_RANK()` vs `RANK()`:
+
+```
+Salary: 70000, 60000, 60000, 50000
+
+DENSE_RANK():
+70000 → rank 1
+60000 → rank 2
+60000 → rank 2
+50000 → rank 3  (tidak skip)
+
+RANK():
+70000 → rank 1
+60000 → rank 2
+60000 → rank 2
+50000 → rank 4  (skip rank 3 karena ada 2 orang di rank 2)
+```
+
+Untuk kasus ini, `DENSE_RANK()` lebih cocok karena kita mau top 3 **unique salary**, bukan top 3 **posisi**.
+
+**Penjelasan Clause:**
+- `PARTITION BY departmentId`: Ranking di-reset untuk setiap department
+- `ORDER BY salary DESC`: Urutkan dari salary tertinggi ke terendah
+
+Hasil CTE `top_salary_department`:
+
+```
++--------+--------------+------+
+| salary | departmentId | rank |
++--------+--------------+------+
+| 90000  | 1            | 1    | <- IT: rank 1
+| 85000  | 1            | 2    | <- IT: rank 2
+| 70000  | 1            | 3    | <- IT: rank 3
+| 69000  | 1            | 4    | <- IT: rank 4
+| 80000  | 2            | 1    | <- Sales: rank 1
+| 60000  | 2            | 2    | <- Sales: rank 2
++--------+--------------+------+
+```
+
+### 3. Join untuk Mendapatkan Data Lengkap
+
+```sql
+SELECT
+    d.name AS "Department",
+    e.name AS "Employee",
+    t.salary AS "Salary"
+FROM top_salary_department AS t
+JOIN Department d ON t.departmentId = d.id
+JOIN Employee e ON t.departmentId = e.departmentId AND t.salary = e.salary
+WHERE t.rank <= 3
+```
+
+Terakhir, kita join dengan tabel `Department` dan `Employee` untuk mendapatkan nama department dan nama karyawan, lalu filter hanya yang rank-nya \<= 3.
+
+**Join dengan Employee:**
+
+Perhatikan kondisi join: `t.departmentId = e.departmentId AND t.salary = e.salary`
+
+Ini akan mengembalikan **semua karyawan** yang punya salary tersebut di department tersebut. Jadi kalau ada 2 orang dengan salary 85000 (Joe dan Randy), keduanya akan muncul.
+
+**WHERE t.rank \<= 3:**
+
+Filter ini memastikan kita hanya ambil salary dengan ranking 1, 2, atau 3 di setiap department.
+
+Hasil akhir:
+
+```
++------------+----------+--------+
+| Department | Employee | Salary |
++------------+----------+--------+
+| IT         | Max      | 90000  |
+| IT         | Joe      | 85000  | <- Joe dan Randy sama-sama rank 2
+| IT         | Randy    | 85000  | <- Joe dan Randy sama-sama rank 2
+| IT         | Will     | 70000  |
+| Sales      | Henry    | 80000  |
+| Sales      | Sam      | 60000  |
++------------+----------+--------+
+```
+
+**Kenapa Janet (69000) tidak muncul?**
+
+Karena di IT department, salary unik yang masuk top 3 adalah: 90000 (rank 1), 85000 (rank 2), 70000 (rank 3). Salary 69000 adalah rank 4, jadi tidak masuk.
+
+## Referensi
+
+- `WITH` (CTE): Membuat temporary result set yang bisa direferensikan dalam query utama.
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `DISTINCT`: Menghilangkan duplikasi baris.
+- `FROM`: Menentukan tabel sumber data.
+- `WHERE`: Memfilter baris berdasarkan kondisi.
+- `ORDER BY`: Mengurutkan hasil query.
+- `JOIN`: Menggabungkan dua tabel berdasarkan kondisi.
+- `ON`: Menentukan kondisi untuk menggabungkan baris dari kedua tabel.
+- `SUM()`: Menghitung total nilai.
+- `OVER()`: Clause untuk mendefinisikan window dalam window function.
+- `PARTITION BY`: Membagi data menjadi partisi untuk perhitungan window function.
+- `DENSE_RANK()`: Fungsi ranking yang memberikan nomor urut tanpa skip meskipun ada nilai yang sama.
+- `RANK()`: Fungsi ranking yang skip nomor kalau ada tie (contoh: 1, 2, 2, 4).
+- `ROW_NUMBER()`: Fungsi yang memberikan nomor unik untuk setiap baris (contoh: 1, 2, 3, 4).
+- Window Function: Fungsi yang melakukan perhitungan pada sekumpulan baris yang terkait dengan baris saat ini.
+- Multiple CTE: Teknik menggunakan beberapa CTE untuk memecah masalah kompleks menjadi tahap-tahap kecil.
+- Foreign Key: Kolom yang merujuk ke primary key di tabel lain.
