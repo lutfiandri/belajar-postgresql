@@ -1,0 +1,289 @@
+---
+title: Restaurant Growth
+description: Restaurant Growth
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+<Badge text="Medium" variant="note" />
+<Badge text="Window Functions" variant="note" />
+
+Hitung total dan rata-rata amount untuk setiap hari berdasarkan 7 hari terakhir (termasuk hari itu sendiri) menggunakan CTE, window function `SUM() OVER()`, `AVG() OVER()`, dan `OFFSET`.
+
+https://leetcode.com/problems/restaurant-growth
+
+## Soal
+
+> Table: `Customer`
+>
+> ```
+> +---------------+---------+
+> | Column Name   | Type    |
+> +---------------+---------+
+> | customer_id   | int     |
+> | name          | varchar |
+> | visited_on    | date    |
+> | amount        | int     |
+> +---------------+---------+
+> ```
+>
+> In SQL, `(customer_id, visited_on)` is the primary key for this table.
+>
+> This table contains data about customer transactions in a restaurant.
+>
+> `visited_on` is the date on which the customer with ID (`customer_id`) has visited the restaurant.
+>
+> `amount` is the total paid by a customer.
+
+You are the restaurant owner and you want to analyze a possible expansion (there will be at least one customer every day).
+
+Compute the moving average of how much the customer paid in a seven days window (i.e., current day + 6 days before). `average_amount` should be rounded to two decimal places.
+
+Return the result table ordered by `visited_on` in ascending order.
+
+The result format is in the following example.
+
+> **Example 1:**
+>
+> Input:
+>
+> `Customer` table:
+>
+> ```
+> +-------------+--------------+--------------+-------------+
+> | customer_id | name         | visited_on   | amount      |
+> +-------------+--------------+--------------+-------------+
+> | 1           | Jhon         | 2019-01-01   | 100         |
+> | 2           | Daniel       | 2019-01-02   | 110         |
+> | 3           | Jade         | 2019-01-03   | 120         |
+> | 4           | Khaled       | 2019-01-04   | 130         |
+> | 5           | Winston      | 2019-01-05   | 110         |
+> | 6           | Elvis        | 2019-01-06   | 140         |
+> | 7           | Anna         | 2019-01-07   | 150         |
+> | 8           | Maria        | 2019-01-08   | 80          |
+> | 9           | Jaze         | 2019-01-09   | 110         |
+> | 1           | Jhon         | 2019-01-10   | 130         |
+> | 3           | Jade         | 2019-01-10   | 150         |
+> +-------------+--------------+--------------+-------------+
+> ```
+>
+> Output:
+>
+> ```
+> +--------------+--------------+----------------+
+> | visited_on   | amount       | average_amount |
+> +--------------+--------------+----------------+
+> | 2019-01-07   | 860          | 122.86         |
+> | 2019-01-08   | 840          | 120.00         |
+> | 2019-01-09   | 840          | 120.00         |
+> | 2019-01-10   | 1000         | 142.86         |
+> +--------------+--------------+----------------+
+> ```
+>
+> **Explanation:**
+> - 1st moving average from 2019-01-01 to 2019-01-07 has an average_amount of (100 + 110 + 120 + 130 + 110 + 140 + 150)/7 = 122.86
+> - 2nd moving average from 2019-01-02 to 2019-01-08 has an average_amount of (110 + 120 + 130 + 110 + 140 + 150 + 80)/7 = 120.00
+> - 3rd moving average from 2019-01-03 to 2019-01-09 has an average_amount of (120 + 130 + 110 + 140 + 150 + 80 + 110)/7 = 120.00
+> - 4th moving average from 2019-01-04 to 2019-01-10 has an average_amount of (130 + 110 + 140 + 150 + 80 + 110 + 280)/7 = 142.86
+
+## Setup Soal
+
+Buat tabel dan insert data contoh:
+
+```sql
+CREATE TABLE Customer (
+    customer_id INT,
+    name VARCHAR(100),
+    visited_on DATE,
+    amount INT,
+    PRIMARY KEY (customer_id, visited_on)
+);
+
+INSERT INTO Customer (customer_id, name, visited_on, amount) VALUES
+    (1, 'Jhon', '2019-01-01', 100),
+    (2, 'Daniel', '2019-01-02', 110),
+    (3, 'Jade', '2019-01-03', 120),
+    (4, 'Khaled', '2019-01-04', 130),
+    (5, 'Winston', '2019-01-05', 110),
+    (6, 'Elvis', '2019-01-06', 140),
+    (7, 'Anna', '2019-01-07', 150),
+    (8, 'Maria', '2019-01-08', 80),
+    (9, 'Jaze', '2019-01-09', 110),
+    (1, 'Jhon', '2019-01-10', 130),
+    (3, 'Jade', '2019-01-10', 150);
+```
+
+## Jawaban SQL
+
+```sql
+WITH sum_amount AS (
+    SELECT
+        visited_on,
+        SUM(amount) AS amount
+    FROM customer
+    GROUP BY visited_on
+    ORDER BY visited_on
+)
+
+SELECT
+    visited_on,
+    SUM(amount) OVER(ORDER BY visited_on ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS amount,
+    ROUND(AVG(amount) OVER(ORDER BY visited_on ROWS BETWEEN 6 PRECEDING AND CURRENT ROW), 2) AS average_amount
+FROM sum_amount
+OFFSET 6;
+```
+
+## Penjelasan
+
+Soal ini meminta kita menghitung moving average (rata-rata bergerak) dari total pembayaran customer dalam window 7 hari (hari ini + 6 hari sebelumnya). Kita akan menggunakan window function dengan `OVER()` clause untuk menghitung ini.
+
+Mari kita breakdown query-nya step by step:
+
+### 1. CTE: Agregasi Amount per Hari
+
+```sql
+WITH sum_amount AS (
+    SELECT
+        visited_on,
+        SUM(amount) AS amount
+    FROM customer
+    GROUP BY visited_on
+    ORDER BY visited_on
+)
+```
+
+Pertama, kita buat CTE untuk menjumlahkan semua `amount` per hari. Ini penting karena dalam satu hari bisa ada beberapa customer yang datang (seperti di tanggal 2019-01-10 ada Jhon dan Jade).
+
+Hasil CTE `sum_amount`:
+
+```
++------------+--------+
+| visited_on | amount |
++------------+--------+
+| 2019-01-01 | 100    |
+| 2019-01-02 | 110    |
+| 2019-01-03 | 120    |
+| 2019-01-04 | 130    |
+| 2019-01-05 | 110    |
+| 2019-01-06 | 140    |
+| 2019-01-07 | 150    |
+| 2019-01-08 | 80     |
+| 2019-01-09 | 110    |
+| 2019-01-10 | 280    | <- 130 + 150
++------------+--------+
+```
+
+### 2. Window Function dengan OVER()
+
+Ini adalah bagian paling penting dari query ini. Kita menggunakan window function untuk menghitung total dan rata-rata dalam window 7 hari.
+
+```sql
+SUM(amount) OVER(ORDER BY visited_on ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)
+```
+
+**Penjelasan Window Function:**
+
+- `SUM(amount)`: Fungsi agregat yang akan dihitung dalam window
+- `OVER()`: Clause yang mendefinisikan window (jendela data) untuk perhitungan
+- `ORDER BY visited_on`: Mengurutkan data berdasarkan tanggal sebelum menghitung
+- `ROWS BETWEEN 6 PRECEDING AND CURRENT ROW`: Mendefinisikan frame window
+  - `6 PRECEDING`: 6 baris sebelum baris saat ini
+  - `CURRENT ROW`: Baris saat ini
+  - `BETWEEN` di sini bersifat **inclusive** (termasuk batas awal dan akhir), jadi `6 PRECEDING` dan `CURRENT ROW` keduanya ikut dihitung
+  - Jadi total ada 7 baris (6 sebelumnya + 1 baris saat ini)
+
+**Cara Kerja Window Function:**
+
+Untuk setiap baris, window function akan "melihat" 6 baris sebelumnya dan baris saat ini, lalu menghitung `SUM()` atau `AVG()` dari nilai-nilai tersebut.
+
+Contoh untuk tanggal 2019-01-07:
+
+```
+Window untuk 2019-01-07:
++------------+--------+
+| visited_on | amount |
++------------+--------+
+| 2019-01-01 | 100    | <- 6 preceding
+| 2019-01-02 | 110    | <- 5 preceding
+| 2019-01-03 | 120    | <- 4 preceding
+| 2019-01-04 | 130    | <- 3 preceding
+| 2019-01-05 | 110    | <- 2 preceding
+| 2019-01-06 | 140    | <- 1 preceding
+| 2019-01-07 | 150    | <- current row
++------------+--------+
+
+SUM = 100 + 110 + 120 + 130 + 110 + 140 + 150 = 860
+AVG = 860 / 7 = 122.857... ≈ 122.86
+```
+
+Contoh untuk tanggal 2019-01-08:
+
+```
+Window untuk 2019-01-08:
++------------+--------+
+| visited_on | amount |
++------------+--------+
+| 2019-01-02 | 110    | <- 6 preceding
+| 2019-01-03 | 120    | <- 5 preceding
+| 2019-01-04 | 130    | <- 4 preceding
+| 2019-01-05 | 110    | <- 3 preceding
+| 2019-01-06 | 140    | <- 2 preceding
+| 2019-01-07 | 150    | <- 1 preceding
+| 2019-01-08 | 80     | <- current row
++------------+--------+
+
+SUM = 110 + 120 + 130 + 110 + 140 + 150 + 80 = 840
+AVG = 840 / 7 = 120.00
+```
+
+**Perbedaan Window Function dengan GROUP BY:**
+
+- `GROUP BY`: Mengelompokkan baris dan menghasilkan satu baris per grup. Baris asli "hilang".
+- Window Function: Menghitung agregat tanpa mengelompokkan. Setiap baris tetap ada, tapi ditambahkan kolom hasil perhitungan window.
+
+### 3. AVG() dengan Window Function
+
+```sql
+ROUND(AVG(amount) OVER(ORDER BY visited_on ROWS BETWEEN 6 PRECEDING AND CURRENT ROW), 2)
+```
+
+Sama seperti `SUM()`, tapi kita menghitung rata-rata dari 7 hari tersebut. Hasilnya dibulatkan ke 2 desimal dengan `ROUND()`.
+
+### 4. OFFSET 6
+
+```sql
+OFFSET 6
+```
+
+Karena kita butuh minimal 7 hari data untuk menghitung moving average, kita skip 6 baris pertama. Baris ke-7 adalah hari pertama yang punya data lengkap 7 hari (hari itu sendiri + 6 hari sebelumnya).
+
+- Baris 1-6: Tidak punya cukup data (kurang dari 7 hari)
+- Baris 7 dst: Punya data lengkap 7 hari
+
+Hasil akhir:
+
+```
++--------------+--------------+----------------+
+| visited_on   | amount       | average_amount |
++--------------+--------------+----------------+
+| 2019-01-07   | 860          | 122.86         |
+| 2019-01-08   | 840          | 120.00         |
+| 2019-01-09   | 840          | 120.00         |
+| 2019-01-10   | 1000         | 142.86         |
++--------------+--------------+----------------+
+```
+
+## Referensi
+
+- `WITH` (CTE): Membuat temporary result set yang bisa direferensikan dalam query utama.
+- `SELECT`: Memilih kolom yang akan ditampilkan.
+- `FROM`: Menentukan tabel sumber data.
+- `GROUP BY`: Mengelompokkan baris berdasarkan nilai kolom tertentu.
+- `ORDER BY`: Mengurutkan hasil query.
+- `SUM()`: Menghitung total nilai.
+- `AVG()`: Menghitung rata-rata nilai.
+- `ROUND(value, decimal_places)`: Membulatkan nilai ke jumlah desimal tertentu.
+- `OVER()`: Clause untuk mendefinisikan window dalam window function.
+- `ROWS BETWEEN ... AND ...`: Mendefinisikan frame window untuk perhitungan.
+- `OFFSET n`: Skip n baris pertama dari hasil query.
+- Window Function: Fungsi yang melakukan perhitungan pada sekumpulan baris yang terkait dengan baris saat ini, tanpa mengelompokkan baris.
